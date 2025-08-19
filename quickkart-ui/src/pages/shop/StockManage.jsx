@@ -16,6 +16,7 @@ export default function StockManage() {
     category: "",
     color: "",
     sizes: [],
+    sizeStocks: [],
     gender: "",
     ageCategory: "",
     styleFit: "",
@@ -61,12 +62,16 @@ export default function StockManage() {
     } else if (type === 'checkbox') {
       const { checked } = e.target;
       if (name === 'sizes') {
-        setForm(prev => ({
-          ...prev,
-          sizes: checked 
+        setForm(prev => {
+          const nextSizes = checked 
             ? [...prev.sizes, value]
-            : prev.sizes.filter(size => size !== value)
-        }));
+            : prev.sizes.filter(size => size !== value);
+          const normalized = nextSizes.map(sz => {
+            const existing = prev.sizeStocks.find(s => s.size === sz);
+            return existing ? existing : { size: sz, quantity: 0 };
+          });
+          return { ...prev, sizes: nextSizes, sizeStocks: normalized };
+        });
       }
     } else {
       setForm(prev => ({ ...prev, [name]: value }));
@@ -117,6 +122,7 @@ export default function StockManage() {
         footwearCategory: form.productType === "footwear" ? form.footwearCategory : undefined,
         color: form.color.trim(),
         sizes: form.sizes,
+        sizeStocks: form.sizeStocks,
         gender: form.gender,
         ageCategory: form.ageCategory,
         styleFit: form.styleFit,
@@ -176,6 +182,7 @@ export default function StockManage() {
         category: "",
         color: "",
         sizes: [],
+        sizeStocks: [],
         gender: "",
         ageCategory: "",
         styleFit: "",
@@ -194,6 +201,7 @@ export default function StockManage() {
       category: stock.category || "",
       color: stock.color || "",
       sizes: stock.sizes || [],
+      sizeStocks: stock.sizeStocks || (stock.sizes || []).map(sz => ({ size: sz, quantity: 0 })),
       gender: stock.gender || "",
       ageCategory: stock.ageCategory || "",
       styleFit: stock.styleFit || "",
@@ -501,6 +509,36 @@ export default function StockManage() {
                     </label>
                   ))}
                 </div>
+                {form.sizes.length > 0 && (
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Stock per size</label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {form.sizes.map(sz => (
+                        <div key={sz} className="flex items-center gap-2">
+                          <span className="w-12 text-sm text-gray-700">{sz}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={(form.sizeStocks.find(s => s.size === sz)?.quantity) ?? 0}
+                            onChange={(e) => {
+                              const qty = Math.max(0, parseInt(e.target.value || '0'));
+                              setForm(prev => {
+                                const next = [...prev.sizeStocks];
+                                const idx = next.findIndex(s => s.size === sz);
+                                if (idx >= 0) next[idx] = { size: sz, quantity: qty };
+                                else next.push({ size: sz, quantity: qty });
+                                return { ...prev, sizeStocks: next };
+                              });
+                            }}
+                            className="input-field"
+                            placeholder="0"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Image Upload */}

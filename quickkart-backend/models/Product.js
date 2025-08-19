@@ -8,7 +8,12 @@ const productSchema = new mongoose.Schema({
   category: String,
   tags: [String],
   color: String,
-  sizes: [String], // Changed from size to sizes array
+  sizes: [String], // list of size labels for selection
+  sizeStocks: [{
+    size: String,
+    quantity: { type: Number, default: 0 }
+  }], // per-size inventory tracking
+  totalStock: { type: Number, default: 0 }, // derived sum of sizeStocks
   gender: String,
   ageCategory: String,
   styleFit: String,

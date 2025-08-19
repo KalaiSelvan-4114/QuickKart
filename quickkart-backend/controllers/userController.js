@@ -452,6 +452,29 @@ exports.createOrder = async (req, res) => {
     const order = new Order(orderData);
     const savedOrder = await order.save();
 
+    // Decrement stock per size for each product
+    for (const item of items) {
+      try {
+        const product = await Product.findById(item.productId);
+        if (!product) continue;
+        // For now, decrement from the first available sizeStocks entries proportionally to quantity
+        // If frontend later sends selected size, we can decrement that exact size
+        let remaining = Number(item.quantity) || 0;
+        if (Array.isArray(product.sizeStocks) && product.sizeStocks.length > 0) {
+          for (const ss of product.sizeStocks) {
+            if (remaining <= 0) break;
+            const take = Math.min(remaining, Math.max(0, ss.quantity));
+            ss.quantity = Math.max(0, ss.quantity - take);
+            remaining -= take;
+          }
+          product.totalStock = product.sizeStocks.reduce((sum, s) => sum + (Number.isFinite(s.quantity) ? s.quantity : 0), 0);
+        } else if (typeof product.totalStock === 'number') {
+          product.totalStock = Math.max(0, product.totalStock - remaining);
+        }
+        await product.save();
+      } catch (_) {}
+    }
+
     await User.findByIdAndUpdate(req.user.id, { $set: { cart: [] } });
 
     const populatedOrder = await Order.findById(savedOrder._id)

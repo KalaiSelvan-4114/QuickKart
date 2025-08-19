@@ -63,6 +63,22 @@ exports.addStock = async (req, res) => {
       image: req.body.image, // may be undefined; will set below if file uploaded
       shop: req.shop.id
     };
+
+    // Handle per-size stock quantities
+    // Expect req.body.sizeStocks as either JSON string or object array [{ size: "M", quantity: 10 }, ...]
+    let sizeStocks = [];
+    if (req.body.sizeStocks) {
+      try {
+        sizeStocks = Array.isArray(req.body.sizeStocks) ? req.body.sizeStocks : JSON.parse(req.body.sizeStocks);
+      } catch (_) {
+        sizeStocks = [];
+      }
+    } else if (Array.isArray(sizes) && sizes.length) {
+      // If not provided, default all selected sizes to 0 stock
+      sizeStocks = sizes.map(sz => ({ size: sz, quantity: 0 }));
+    }
+    productData.sizeStocks = sizeStocks.map(s => ({ size: String(s.size), quantity: Math.max(0, parseInt(s.quantity || 0)) }));
+    productData.totalStock = productData.sizeStocks.reduce((sum, s) => sum + (Number.isFinite(s.quantity) ? s.quantity : 0), 0);
     
     // Add shop location if available
     if (shop.location) {
@@ -174,6 +190,18 @@ exports.editStock = async (req, res) => {
       footwearCategory: req.body.footwearCategory ?? existingProduct.footwearCategory,
       image: req.body.image ?? existingProduct.image
     };
+
+    // Update per-size stock if provided
+    if (req.body.sizeStocks) {
+      let nextStocks = [];
+      try {
+        nextStocks = Array.isArray(req.body.sizeStocks) ? req.body.sizeStocks : JSON.parse(req.body.sizeStocks);
+      } catch (_) {
+        nextStocks = [];
+      }
+      updateData.sizeStocks = nextStocks.map(s => ({ size: String(s.size), quantity: Math.max(0, parseInt(s.quantity || 0)) }));
+      updateData.totalStock = updateData.sizeStocks.reduce((sum, s) => sum + (Number.isFinite(s.quantity) ? s.quantity : 0), 0);
+    }
     
     // If a new file is provided (legacy/mixed clients), upload and override image URL
     if (req.file) {
