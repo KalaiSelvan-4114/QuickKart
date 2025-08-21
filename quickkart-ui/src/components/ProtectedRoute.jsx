@@ -7,8 +7,14 @@ export default function ProtectedRoute({ children, userType = "user" }) {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      // You can add JWT token validation here if needed
+      // Optionally validate JWT structure quickly (no decode to avoid env)
       setIsAuthenticated(true);
+      // Persist role if missing
+      const storedRole = localStorage.getItem("authRole");
+      if (!storedRole) {
+        // Infer from route path
+        if (userType) localStorage.setItem("authRole", userType);
+      }
     } else {
       setIsAuthenticated(false);
     }

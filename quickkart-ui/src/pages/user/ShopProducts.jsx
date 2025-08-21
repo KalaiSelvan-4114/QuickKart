@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
 import { useCart } from "../../contexts/CartContext";
 
 export default function ShopProducts() {
   const { shopId } = useParams();
   const { addToCart } = useCart();
+  const navigate = useNavigate();
   const [shop, setShop] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,9 +50,14 @@ export default function ShopProducts() {
     } catch (_) {}
   };
 
-  const handleAddToCart = async (productId) => {
+  const handleAddToCart = async (product) => {
     try {
-      const result = await addToCart(productId, 1);
+      // If product has sizes, route to detail page to select size
+      if (Array.isArray(product.sizes) && product.sizes.length > 0) {
+        navigate(`/user/product/${product._id}`);
+        return;
+      }
+      const result = await addToCart(product._id, 1);
       
       if (result.success) {
         setNotification({
@@ -357,7 +363,7 @@ export default function ShopProducts() {
                     </p>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleAddToCart(product._id)}
+                        onClick={() => handleAddToCart(product)}
                         className="btn-primary flex-1 text-sm py-2"
                       >
                         Add to Cart

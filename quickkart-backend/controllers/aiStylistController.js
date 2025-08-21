@@ -65,7 +65,7 @@ exports.getRecommendations = async (req, res) => {
 
     // Handle style preferences
     if (style && style !== "casual") {
-      filter.style = { $regex: style, $options: 'i' };
+      andClauses.push({ styleFit: { $regex: style, $options: 'i' } });
     }
 
     // Handle price range

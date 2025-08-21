@@ -270,18 +270,18 @@ exports.getCart = async (req, res) => {
 
 exports.addToCart = async (req, res) => {
   try {
-    const { productId, quantity = 1 } = req.body;
+    const { productId, quantity = 1, selectedSize = null } = req.body;
     
     // Check if product already exists in cart
     const user = await User.findById(req.user.id);
-    const existingCartItem = user.cart.find(item => item.productId && item.productId.toString() === productId);
+    const existingCartItem = user.cart.find(item => item.productId && item.productId.toString() === productId && String(item.selectedSize || "") === String(selectedSize || ""));
     
     if (existingCartItem) {
       // Update quantity if product already exists
       existingCartItem.quantity += quantity;
     } else {
       // Add new item to cart
-      user.cart.push({ productId, quantity });
+      user.cart.push({ productId, quantity, selectedSize });
     }
     
     await user.save();
@@ -304,6 +304,7 @@ exports.addToCart = async (req, res) => {
       category: item.productId?.category,
       color: item.productId?.color,
       sizes: item.productId?.sizes,
+      selectedSize: item.selectedSize || null,
       gender: item.productId?.gender,
       ageCategory: item.productId?.ageCategory,
       styleFit: item.productId?.styleFit,
@@ -324,7 +325,7 @@ exports.updateCartItem = async (req, res) => {
     const { quantity } = req.body;
     const user = await User.findById(req.user.id);
     
-    const cartItem = user.cart.find(item => item._id.toString() === req.params.id);
+    const cartItem = user.cart.find(item => item._id.toString() === req.params.itemId);
     if (!cartItem) {
       return res.status(404).json({ error: "Cart item not found" });
     }
@@ -350,6 +351,7 @@ exports.updateCartItem = async (req, res) => {
       category: item.productId?.category,
       color: item.productId?.color,
       sizes: item.productId?.sizes,
+      selectedSize: item.selectedSize || null,
       gender: item.productId?.gender,
       ageCategory: item.productId?.ageCategory,
       styleFit: item.productId?.styleFit,

@@ -11,6 +11,7 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
+  const [selectedSize, setSelectedSize] = useState("");
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -31,7 +32,7 @@ export default function ProductDetail() {
   const handleAddToCart = async () => {
     try {
       setAdding(true);
-      await addToCart(product._id, 1);
+      await addToCart(product._id, 1, selectedSize || null);
       navigate("/user/cart");
     } catch (_) {
       setError("Could not add to cart");
@@ -99,7 +100,20 @@ export default function ProductDetail() {
               {product.color && <span className="bg-pink-100 text-pink-800 px-2 py-1 rounded-full text-xs">{product.color}</span>}
             </div>
             {product.sizes?.length > 0 && (
-              <div className="text-sm text-gray-600">Available sizes: {product.sizes.join(", ")}</div>
+              <div className="pt-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Size</label>
+                <div className="flex flex-wrap gap-2">
+                  {product.sizes.map((sz) => (
+                    <button
+                      key={sz}
+                      onClick={() => setSelectedSize(sz)}
+                      className={`px-3 py-1 rounded-full border ${selectedSize === sz ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                    >
+                      {sz}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
             <div className="flex gap-3 pt-4">
               <button onClick={handleAddToCart} disabled={adding} className="btn-primary">

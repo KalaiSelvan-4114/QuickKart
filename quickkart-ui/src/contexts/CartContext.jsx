@@ -36,10 +36,10 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const addToCart = async (productId, quantity = 1) => {
+  const addToCart = async (productId, quantity = 1, selectedSize = null) => {
     try {
       setLoading(true);
-      const res = await axiosClient.post('/user/cart', { productId, quantity });
+      const res = await axiosClient.post('/user/cart', { productId, quantity, selectedSize });
       
       if (res.data.success) {
         // Reload cart to get updated data

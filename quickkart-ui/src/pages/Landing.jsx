@@ -1,11 +1,20 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 export default function Landing() {
   const [isVisible, setIsVisible] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setIsVisible(true);
+    // Auto-redirect if already authenticated
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("authRole");
+    if (token) {
+      if (role === "user") navigate("/user/home", { replace: true });
+      else if (role === "shop") navigate("/shop/stock", { replace: true });
+      else if (role === "admin") navigate("/admin/pending", { replace: true });
+    }
   }, []);
 
   return (

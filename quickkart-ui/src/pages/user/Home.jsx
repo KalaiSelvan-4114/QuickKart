@@ -67,10 +67,10 @@ export default function Home() {
       
       console.log("🔄 Loading home data...");
       
-      // Try to load stocks and shops, but don't crash if they fail
+      // Try to load nearby products and shops, but don't crash if they fail
       try {
-        console.log("📦 Loading products...");
-        const productsRes = await axiosClient.get("/user/products");
+        console.log("📦 Loading nearby products within 10km...");
+        const productsRes = await axiosClient.get("/user/stocks");
         console.log("✅ Products loaded:", productsRes.data);
         setStocks(productsRes.data || []);
       } catch (err) {
@@ -148,13 +148,16 @@ export default function Home() {
     }
   };
 
-  const addToCart = async (productId) => {
+  const addToCart = async (product) => {
     try {
-      await axiosClient.post("/user/cart", { productId, quantity: 1 });
-      // Show success notification
+      // If sizes available, go to detail page to pick
+      if (Array.isArray(product.sizes) && product.sizes.length > 0) {
+        navigate(`/user/product/${product._id}`);
+        return;
+      }
+      await axiosClient.post("/user/cart", { productId: product._id, quantity: 1 });
     } catch (err) {
       console.log("Could not add to cart:", err.message);
-      // Don't crash, just show a message
       setError("Could not add to cart. Please try again later.");
     }
   };
@@ -471,7 +474,7 @@ export default function Home() {
                     </p>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => addToCart(product._id)}
+                        onClick={() => addToCart(product)}
                         className="btn-primary flex-1 text-sm py-2"
                       >
                         Add to Cart
