@@ -10,7 +10,19 @@ export default function Landing() {
     // Auto-redirect if already authenticated
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("authRole");
+    const lastRoute = localStorage.getItem("lastRoute");
     if (token) {
+      // Prefer lastRoute if present and matches current role
+      if (lastRoute && typeof lastRoute === 'string') {
+        if (
+          (role === 'user' && lastRoute.startsWith('/user/')) ||
+          (role === 'shop' && lastRoute.startsWith('/shop/')) ||
+          (role === 'admin' && lastRoute.startsWith('/admin/'))
+        ) {
+          navigate(lastRoute, { replace: true });
+          return;
+        }
+      }
       if (role === "user") navigate("/user/home", { replace: true });
       else if (role === "shop") navigate("/shop/stock", { replace: true });
       else if (role === "admin") navigate("/admin/pending", { replace: true });

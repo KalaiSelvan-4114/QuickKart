@@ -42,5 +42,13 @@ export default function ProtectedRoute({ children, userType = "user" }) {
     return <Navigate to={loginPath} replace />;
   }
 
+  // Persist last successful route for seamless revisit redirects
+  try {
+    const path = window.location.pathname;
+    if (path && typeof path === 'string') {
+      localStorage.setItem('lastRoute', path);
+    }
+  } catch {}
+
   return children;
 }

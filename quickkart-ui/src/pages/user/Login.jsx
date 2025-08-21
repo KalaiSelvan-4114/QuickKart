@@ -22,6 +22,14 @@ export default function UserLogin() {
     }
   }, [location, navigate]);
 
+  // If already authenticated, redirect to user home on visiting login page
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      navigate("/user/home", { replace: true });
+    }
+  }, [navigate]);
+
   const login = async (e) => {
     e.preventDefault();
     setLoading(true);

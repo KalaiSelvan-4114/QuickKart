@@ -35,6 +35,7 @@ export default function Navbar() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("authRole");
+    localStorage.removeItem("lastRoute");
     setIsLoggedIn(false);
     setUserType("");
     setShowMobileMenu(false);

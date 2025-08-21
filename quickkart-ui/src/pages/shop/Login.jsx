@@ -22,6 +22,15 @@ export default function ShopLogin() {
     }
   }, [location, navigate]);
 
+  // If already authenticated, redirect to shop stock on visiting login page
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("authRole");
+    if (token && role === 'shop') {
+      navigate("/shop/stock", { replace: true });
+    }
+  }, [navigate]);
+
   const login = async (e) => {
     e.preventDefault();
     setLoading(true);
