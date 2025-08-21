@@ -21,9 +21,9 @@ export const CartProvider = ({ children }) => {
     loadCart();
   }, []);
 
-  const loadCart = async () => {
+  const loadCart = async (options = { silent: false }) => {
     try {
-      setLoading(true);
+      if (!options.silent) setLoading(true);
       const res = await axiosClient.get('/user/cart');
       
       // The backend now returns properly populated cart data
@@ -32,18 +32,17 @@ export const CartProvider = ({ children }) => {
       console.error('Failed to load cart:', err);
       setError('Failed to load cart');
     } finally {
-      setLoading(false);
+      if (!options.silent) setLoading(false);
     }
   };
 
   const addToCart = async (productId, quantity = 1, selectedSize = null) => {
     try {
-      setLoading(true);
       const res = await axiosClient.post('/user/cart', { productId, quantity, selectedSize });
       
       if (res.data.success) {
         // Reload cart to get updated data
-        await loadCart();
+        await loadCart({ silent: true });
         return { success: true, message: 'Added to cart successfully!' };
       }
     } catch (err) {
@@ -52,17 +51,16 @@ export const CartProvider = ({ children }) => {
       setError(errorMessage);
       return { success: false, message: errorMessage };
     } finally {
-      setLoading(false);
+      // no global loading toggle here to avoid flashing the page
     }
   };
 
   const updateCartItem = async (itemId, quantity) => {
     try {
-      setLoading(true);
       const res = await axiosClient.put(`/user/cart/${itemId}`, { quantity });
       
       if (res.data.success) {
-        await loadCart();
+        await loadCart({ silent: true });
         return { success: true, message: 'Cart updated successfully!' };
       }
     } catch (err) {
@@ -71,17 +69,16 @@ export const CartProvider = ({ children }) => {
       setError(errorMessage);
       return { success: false, message: errorMessage };
     } finally {
-      setLoading(false);
+      // no global loading toggle here to avoid flashing the page
     }
   };
 
   const removeFromCart = async (itemId) => {
     try {
-      setLoading(true);
       const res = await axiosClient.delete(`/user/cart/${itemId}`);
       
       if (res.data.success) {
-        await loadCart();
+        await loadCart({ silent: true });
         return { success: true, message: 'Item removed from cart!' };
       }
     } catch (err) {
@@ -90,7 +87,7 @@ export const CartProvider = ({ children }) => {
       setError(errorMessage);
       return { success: false, message: errorMessage };
     } finally {
-      setLoading(false);
+      // no global loading toggle here to avoid flashing the page
     }
   };
 

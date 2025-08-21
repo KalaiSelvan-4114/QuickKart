@@ -369,7 +369,7 @@ exports.updateCartItem = async (req, res) => {
 
 exports.removeFromCart = async (req, res) => {
   try {
-    await User.findByIdAndUpdate(req.user.id, { $pull: { cart: { _id: req.params.id } } });
+    await User.findByIdAndUpdate(req.user.id, { $pull: { cart: { _id: req.params.itemId } } });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
