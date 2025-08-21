@@ -80,6 +80,7 @@ export default function Navbar() {
                   <>
                     <Link to="/user/home" className={`nav-link ${isActiveLink('/user/home') ? 'nav-link-active' : ''}`}>🏠 Home</Link>
                     <Link to="/user/shops" className={`nav-link ${isActiveLink('/user/shops') ? 'nav-link-active' : ''}`}>🏪 Shops</Link>
+                    <Link to="/user/profile" className={`nav-link ${isActiveLink('/user/profile') ? 'nav-link-active' : ''}`}>👤 Profile</Link>
                     <Link to="/user/wishlist" className={`nav-link ${isActiveLink('/user/wishlist') ? 'nav-link-active' : ''}`}>❤️ Wishlist</Link>
                     <Link to="/user/cart" className={`nav-link ${isActiveLink('/user/cart') ? 'nav-link-active' : ''}`}>
                       🛒 Cart
@@ -139,6 +140,7 @@ export default function Navbar() {
                     <>
                       <Link to="/user/home" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/user/home') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>🏠 Home</Link>
                       <Link to="/user/shops" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/user/shops') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>🏪 Shops</Link>
+                      <Link to="/user/profile" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/user/profile') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>👤 Profile</Link>
                       <Link to="/user/wishlist" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/user/wishlist') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>❤️ Wishlist</Link>
                       <Link to="/user/cart" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/user/cart') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>🛒 Cart</Link>
                       <Link to="/user/orders" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/user/orders') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>📦 Orders</Link>

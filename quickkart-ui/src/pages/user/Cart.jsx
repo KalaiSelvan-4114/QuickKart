@@ -226,7 +226,7 @@ export default function Cart() {
                         {index + 1}
                       </div>
                       
-                      <div className="flex flex-col sm:flex-row gap-6">
+                      <div className="flex flex-col md:flex-row gap-6">
                         {/* Enhanced Image */}
                         <div className="relative w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg group-hover:shadow-xl transition-shadow duration-300">
                           {item.image ? (
