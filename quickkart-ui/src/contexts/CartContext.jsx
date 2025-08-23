@@ -38,9 +38,14 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const addToCart = async (productId, quantity = 1, selectedSize = null) => {
+  const addToCart = async (productId, quantity = 1, selectedSize = null, selectedColor = null) => {
     try {
-      const res = await axiosClient.post('/user/cart', { productId, quantity, selectedSize }, {
+      const res = await axiosClient.post('/user/cart', { 
+        productId, 
+        quantity, 
+        selectedSize,
+        selectedColor
+      }, {
         timeout: 25000 // 25 second timeout
       });
       

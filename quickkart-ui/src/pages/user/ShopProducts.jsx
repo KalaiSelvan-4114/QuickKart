@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
 import { useCart } from "../../contexts/CartContext";
+import ProductSelectionModal from "../../components/ProductSelectionModal";
 
 export default function ShopProducts() {
   const { shopId } = useParams();
@@ -21,6 +22,11 @@ export default function ShopProducts() {
     priceRange: ""
   });
   const [shopUpi, setShopUpi] = useState({ upiVpa: "", upiName: "" });
+
+  // Product selection modal state
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [modalMode, setModalMode] = useState("cart"); // "cart" or "buyNow"
 
   // Request cancellation and cleanup
   const abortControllerRef = useRef(null);
@@ -139,6 +145,90 @@ export default function ShopProducts() {
         setNotification({ show: false, message: "", type: "" });
       }, 3000);
     }
+  };
+
+  // New cart handling functions
+  const handleModalAddToCart = async (productData) => {
+    try {
+      const result = await addToCart(
+        productData.productId, 
+        productData.quantity, 
+        productData.selectedSize,
+        productData.selectedColor
+      );
+      
+      if (result.success) {
+        setNotification({
+          show: true,
+          message: result.message,
+          type: "success"
+        });
+      } else {
+        setNotification({
+          show: true,
+          message: result.message,
+          type: "error"
+        });
+      }
+      
+      // Hide notification after 3 seconds
+      setTimeout(() => {
+        setNotification({ show: false, message: "", type: "" });
+      }, 3000);
+    } catch (err) {
+      setNotification({
+        show: true,
+        message: "Failed to add to cart",
+        type: "error"
+      });
+      
+      setTimeout(() => {
+        setNotification({ show: false, message: "", type: "" });
+      }, 3000);
+    }
+  };
+
+  const handleModalBuyNow = async (productData) => {
+    try {
+      // First add to cart
+      const result = await addToCart(
+        productData.productId, 
+        productData.quantity, 
+        productData.selectedSize,
+        productData.selectedColor
+      );
+      
+      if (result.success) {
+        // Navigate to checkout
+        navigate("/user/checkout");
+      } else {
+        setNotification({
+          show: true,
+          message: result.message || "Failed to process buy now request",
+          type: "error"
+        });
+        
+        setTimeout(() => {
+          setNotification({ show: false, message: "", type: "" });
+        }, 3000);
+      }
+    } catch (err) {
+      setNotification({
+        show: true,
+        message: "Failed to process buy now request. Please try again.",
+        type: "error"
+      });
+      
+      setTimeout(() => {
+        setNotification({ show: false, message: "", type: "" });
+      }, 3000);
+    }
+  };
+
+  const openProductModal = (product, mode) => {
+    setSelectedProduct(product);
+    setModalMode(mode);
+    setShowProductModal(true);
   };
 
   const addToWishlist = async (productId) => {
@@ -413,10 +503,16 @@ export default function ShopProducts() {
                     </p>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleAddToCart(product)}
+                        onClick={() => openProductModal(product, "cart")}
                         className="btn-primary flex-1 text-sm py-2"
                       >
                         Add to Cart
+                      </button>
+                      <button
+                        onClick={() => openProductModal(product, "buyNow")}
+                        className="btn-secondary text-sm py-2 px-3 bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        🚀 Buy Now
                       </button>
                       <button
                         onClick={() => addToWishlist(product._id)}
@@ -433,6 +529,17 @@ export default function ShopProducts() {
           )}
         </div>
       </div>
+
+      {/* Product Selection Modal */}
+      {showProductModal && selectedProduct && (
+        <ProductSelectionModal
+          product={selectedProduct}
+          mode={modalMode}
+          onClose={() => setShowProductModal(false)}
+          onAddToCart={handleModalAddToCart}
+          onBuyNow={handleModalBuyNow}
+        />
+      )}
     </div>
   );
 }

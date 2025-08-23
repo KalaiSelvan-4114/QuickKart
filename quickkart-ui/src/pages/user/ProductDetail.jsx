@@ -12,6 +12,7 @@ export default function ProductDetail() {
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
   const [selectedSize, setSelectedSize] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
 
   // Request cancellation and cleanup
   const abortControllerRef = useRef(null);
@@ -72,10 +73,22 @@ export default function ProductDetail() {
   const handleAddToCart = async () => {
     try {
       setAdding(true);
-      await addToCart(product._id, 1, selectedSize || null);
+      await addToCart(product._id, 1, selectedSize || null, selectedColor || null);
       navigate("/user/cart");
     } catch (_) {
       setError("Could not add to cart");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleBuyNow = async () => {
+    try {
+      setAdding(true);
+      await addToCart(product._id, 1, selectedSize || null, selectedColor || null);
+      navigate("/user/checkout");
+    } catch (_) {
+      setError("Could not process buy now request");
     } finally {
       setAdding(false);
     }
@@ -155,9 +168,44 @@ export default function ProductDetail() {
                 </div>
               </div>
             )}
+            
+            {/* Color Selection */}
+            {product.colors && product.colors.length > 0 && (
+              <div className="pt-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Color</label>
+                <div className="flex flex-wrap gap-2">
+                  {product.colors.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setSelectedColor(color)}
+                      className={`px-3 py-1 rounded-full border ${selectedColor === color ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 border-gray-300'}`}
+                    >
+                      {color}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Single Color Display */}
+            {product.color && !product.colors && (
+              <div className="pt-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
+                <div className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full inline-block">
+                  {product.color}
+                </div>
+              </div>
+            )}
             <div className="flex gap-3 pt-4">
               <button onClick={handleAddToCart} disabled={adding} className="btn-primary">
                 {adding ? "Adding..." : "Add to Cart"}
+              </button>
+              <button 
+                onClick={handleBuyNow} 
+                disabled={adding} 
+                className="btn-secondary bg-green-600 hover:bg-green-700 text-white"
+              >
+                🚀 Buy Now
               </button>
               <button onClick={handleAddToWishlist} className="btn-secondary">❤️ Wishlist</button>
               {product.shop && (

@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
 import { formatCoordinates, parseCoordinateInput } from "../../utils/coordinateConverter";
+import ProductSelectionModal from "../../components/ProductSelectionModal";
+import { useCart } from "../../contexts/CartContext";
 
 export default function Home() {
   const [stocks, setStocks] = useState([]);
   const [nearbyShops, setNearbyShops] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [userLocation, setUserLocation] = useState(null);
   const [locationInput, setLocationInput] = useState("");
@@ -18,6 +20,12 @@ export default function Home() {
     priceRange: ""
   });
   const navigate = useNavigate();
+  const { addToCart } = useCart();
+
+  // Product selection modal state
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [modalMode, setModalMode] = useState("cart"); // "cart" or "buyNow"
 
   // Request cancellation and cleanup
   const abortControllerRef = useRef(null);
@@ -229,19 +237,7 @@ export default function Home() {
     }
   };
 
-  const addToCart = async (product) => {
-    try {
-      // If sizes available, go to detail page to pick
-      if (Array.isArray(product.sizes) && product.sizes.length > 0) {
-        navigate(`/user/product/${product._id}`);
-        return;
-      }
-      await axiosClient.post("/user/cart", { productId: product._id, quantity: 1 });
-    } catch (err) {
-      console.log("Could not add to cart:", err.message);
-      setError("Could not add to cart. Please try again later.");
-    }
-  };
+
 
   const addToWishlist = async (productId) => {
     try {
@@ -251,6 +247,61 @@ export default function Home() {
       console.log("Could not add to wishlist:", err.message);
       // Don't crash, just show a message
       setError("Could not add to wishlist. Please try again later.");
+    }
+  };
+
+  // New cart handling functions
+  const handleAddToCart = (product) => {
+    setSelectedProduct(product);
+    setModalMode("cart");
+    setShowProductModal(true);
+  };
+
+  const handleBuyNow = (product) => {
+    setSelectedProduct(product);
+    setModalMode("buyNow");
+    setShowProductModal(true);
+  };
+
+  const handleModalAddToCart = async (productData) => {
+    try {
+      const result = await addToCart(
+        productData.productId, 
+        productData.quantity, 
+        productData.selectedSize,
+        productData.selectedColor
+      );
+      
+      if (result.success) {
+        // Show success message
+        setError(""); // Clear any previous errors
+        // You could add a success notification here
+      } else {
+        setError(result.message || "Failed to add to cart");
+      }
+    } catch (err) {
+      setError("Failed to add to cart. Please try again.");
+    }
+  };
+
+  const handleModalBuyNow = async (productData) => {
+    try {
+      // First add to cart
+      const result = await addToCart(
+        productData.productId, 
+        productData.quantity, 
+        productData.selectedSize,
+        productData.selectedColor
+      );
+      
+      if (result.success) {
+        // Navigate to checkout
+        navigate("/user/checkout");
+      } else {
+        setError(result.message || "Failed to process buy now request");
+      }
+    } catch (err) {
+      setError("Failed to process buy now request. Please try again.");
     }
   };
 
@@ -555,10 +606,16 @@ export default function Home() {
                     </p>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => addToCart(product)}
+                        onClick={() => handleAddToCart(product)}
                         className="btn-primary flex-1 text-sm py-2"
                       >
                         Add to Cart
+                      </button>
+                      <button
+                        onClick={() => handleBuyNow(product)}
+                        className="btn-secondary text-sm py-2 px-3 bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        🚀 Buy Now
                       </button>
                       <button
                         onClick={() => addToWishlist(product._id)}
@@ -575,6 +632,17 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* Product Selection Modal */}
+      {showProductModal && selectedProduct && (
+        <ProductSelectionModal
+          product={selectedProduct}
+          mode={modalMode}
+          onClose={() => setShowProductModal(false)}
+          onAddToCart={handleModalAddToCart}
+          onBuyNow={handleModalBuyNow}
+        />
+      )}
     </div>
   );
 }
