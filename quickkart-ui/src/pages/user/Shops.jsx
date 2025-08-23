@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
 
@@ -10,23 +10,62 @@ export default function Shops() {
   const [radiusKm, setRadiusKm] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Request cancellation and cleanup
+  const abortControllerRef = useRef(null);
+  const isComponentMountedRef = useRef(true);
+
   useEffect(() => {
     loadShops();
+    
+    // Cleanup function
+    return () => {
+      isComponentMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [filter, radiusKm]);
 
   const loadShops = async () => {
     try {
+      // Cancel any existing request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      // Create new abort controller
+      abortControllerRef.current = new AbortController();
+      
       setLoading(true);
       console.log("🔍 Loading shops with filter:", filter, "radius:", radiusKm);
       const radiusQuery = filter === 'nearby' ? `&radius=${radiusKm}` : '';
-      const res = await axiosClient.get(`/user/shops?filter=${filter}${radiusQuery}`);
+      const res = await axiosClient.get(`/user/shops?filter=${filter}${radiusQuery}`, {
+        signal: abortControllerRef.current.signal,
+        timeout: 25000 // 25 second timeout
+      });
+      
+      // Check if component is still mounted
+      if (!isComponentMountedRef.current) return;
+      
       console.log("✅ Shops response:", res.data);
       setShops(res.data);
     } catch (err) {
+      // Check if component is still mounted
+      if (!isComponentMountedRef.current) return;
+      
+      // Handle cancellation separately
+      if (err.name === 'AbortError') {
+        console.log("🔄 Shops request was cancelled");
+        return;
+      }
+      
       console.error("❌ Error loading shops:", err);
       setError("Failed to load shops");
     } finally {
-      setLoading(false);
+      // Only update state if component is still mounted
+      if (isComponentMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

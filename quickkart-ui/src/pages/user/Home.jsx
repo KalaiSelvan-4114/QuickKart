@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
 import { formatCoordinates, parseCoordinateInput } from "../../utils/coordinateConverter";
@@ -19,9 +19,12 @@ export default function Home() {
   });
   const navigate = useNavigate();
 
+  // Request cancellation and cleanup
+  const abortControllerRef = useRef(null);
+  const isComponentMountedRef = useRef(true);
+
   useEffect(() => {
     console.log("🏠 Home component mounted");
-    
     // Check if user is authenticated
     const token = localStorage.getItem("token");
     console.log("🔑 Token found:", !!token);
@@ -35,11 +38,34 @@ export default function Home() {
     console.log("✅ User authenticated, loading data...");
     loadUserLocation();
     loadHomeData();
+
+    // Cleanup function
+    return () => {
+      isComponentMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [navigate]);
 
   const loadUserLocation = async () => {
     try {
-      const res = await axiosClient.get("/user/profile");
+      // Cancel any existing request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      // Create new abort controller
+      abortControllerRef.current = new AbortController();
+      
+      const res = await axiosClient.get("/user/profile", {
+        signal: abortControllerRef.current.signal,
+        timeout: 15000 // 15 second timeout
+      });
+      
+      // Check if component is still mounted
+      if (!isComponentMountedRef.current) return;
+      
       if (res.data.location) {
         // Handle location object properly
         if (typeof res.data.location === 'object' && res.data.location.lat && res.data.location.lng) {
@@ -55,6 +81,15 @@ export default function Home() {
         setShowLocationModal(true);
       }
     } catch (err) {
+      // Check if component is still mounted
+      if (!isComponentMountedRef.current) return;
+      
+      // Handle cancellation separately
+      if (err.name === 'AbortError') {
+        console.log("🔄 Location request was cancelled");
+        return;
+      }
+      
       console.log("Location not set, showing modal");
       setShowLocationModal(true);
     }
@@ -62,6 +97,14 @@ export default function Home() {
 
   const loadHomeData = async () => {
     try {
+      // Cancel any existing request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      // Create new abort controller
+      abortControllerRef.current = new AbortController();
+      
       setLoading(true);
       setError(""); // Clear any previous errors
       
@@ -70,29 +113,67 @@ export default function Home() {
       // Try to load nearby products and shops, but don't crash if they fail
       try {
         console.log("📦 Loading nearby products within 10km...");
-        const productsRes = await axiosClient.get("/user/stocks");
+        const productsRes = await axiosClient.get("/user/stocks", {
+          signal: abortControllerRef.current.signal,
+          timeout: 20000 // 20 second timeout
+        });
+        
+        // Check if component is still mounted
+        if (!isComponentMountedRef.current) return;
+        
         console.log("✅ Products loaded:", productsRes.data);
         setStocks(productsRes.data || []);
       } catch (err) {
+        // Check if component is still mounted
+        if (!isComponentMountedRef.current) return;
+        
+        // Handle cancellation separately
+        if (err.name === 'AbortError') {
+          console.log("🔄 Products request was cancelled");
+          return;
+        }
+        
         console.error("❌ Products API error:", err.message, err.response?.data);
         setStocks([]);
       }
 
       try {
         console.log("🏪 Loading nearby shops within 10km...");
-        const shopsRes = await axiosClient.get("/user/shops?filter=nearby&radius=10");
+        const shopsRes = await axiosClient.get("/user/shops?filter=nearby&radius=10", {
+          signal: abortControllerRef.current.signal,
+          timeout: 20000 // 20 second timeout
+        });
+        
+        // Check if component is still mounted
+        if (!isComponentMountedRef.current) return;
+        
         console.log("✅ Nearby shops loaded:", shopsRes.data);
         setNearbyShops(shopsRes.data || []);
       } catch (err) {
+        // Check if component is still mounted
+        if (!isComponentMountedRef.current) return;
+        
+        // Handle cancellation separately
+        if (err.name === 'AbortError') {
+          console.log("🔄 Shops request was cancelled");
+          return;
+        }
+        
         console.error("❌ Shops API error:", err.message, err.response?.data);
         setNearbyShops([]);
       }
     } catch (err) {
+      // Check if component is still mounted
+      if (!isComponentMountedRef.current) return;
+      
       console.error("❌ Home data loading error:", err.message, err.response?.data);
       setError("Some features may not be available yet. This is normal during development.");
     } finally {
-      setLoading(false);
-      console.log("🏁 Home data loading completed");
+      // Only update state if component is still mounted
+      if (isComponentMountedRef.current) {
+        setLoading(false);
+        console.log("🏁 Home data loading completed");
+      }
     }
   };
 

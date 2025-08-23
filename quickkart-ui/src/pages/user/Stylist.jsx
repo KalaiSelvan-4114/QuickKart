@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
+import axios from "axios"; // Added for axios.CancelToken
 
 export default function Stylist() {
   const [userProfile, setUserProfile] = useState({
@@ -27,6 +28,11 @@ export default function Stylist() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [useLocationFilter, setUseLocationFilter] = useState(false);
+
+  // Request cancellation and deduplication
+  const abortControllerRef = useRef(null);
+  const pendingRequestRef = useRef(null);
+  const isComponentMountedRef = useRef(true);
 
   // Clothing categories based on age and occasion
   const clothingCategories = {
@@ -366,6 +372,17 @@ export default function Stylist() {
       }
     };
     loadUserProfile();
+
+    // Cleanup function to cancel pending requests when component unmounts
+    return () => {
+      isComponentMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (pendingRequestRef.current) {
+        pendingRequestRef.current.cancel();
+      }
+    };
   }, []);
 
   const handleProfileChange = e => {
@@ -381,6 +398,20 @@ export default function Stylist() {
       showNotification("Please fill in all required fields", "error");
       return;
     }
+
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    if (pendingRequestRef.current) {
+      pendingRequestRef.current.cancel();
+    }
+
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+    
+    // Check if component is still mounted
+    if (!isComponentMountedRef.current) return;
 
     setLoading(true);
     setError("");
@@ -444,18 +475,42 @@ export default function Stylist() {
 
       console.log("🎯 Sending recommendation request:", recommendationData);
 
-      const res = await axiosClient.post("/stylist/recommend", recommendationData);
+      // Create cancelable request
+      const cancelTokenSource = axios.CancelToken.source();
+      pendingRequestRef.current = cancelTokenSource;
+
+      const res = await axiosClient.post("/stylist/recommend", recommendationData, {
+        signal: abortControllerRef.current.signal,
+        cancelToken: cancelTokenSource.token,
+        timeout: 30000 // 30 second timeout for this specific request
+      });
+
+      // Check if component is still mounted
+      if (!isComponentMountedRef.current) return;
+
       console.log("✅ Recommendations received:", res.data);
       
       setRecommendations(res.data || []);
       showNotification("Recommendations generated successfully!", "success");
     } catch (err) {
+      // Check if component is still mounted
+      if (!isComponentMountedRef.current) return;
+
+      // Handle cancellation separately
+      if (err.name === 'AbortError' || err.message === 'canceled') {
+        console.log("🔄 Request was cancelled");
+        return;
+      }
+
       console.error("❌ Recommendation error:", err);
       const errorMessage = err.response?.data?.error || "Failed to fetch recommendations";
       setError(errorMessage);
       showNotification("Failed to generate recommendations", "error");
     } finally {
-      setLoading(false);
+      // Only update state if component is still mounted
+      if (isComponentMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -533,12 +588,26 @@ export default function Stylist() {
       userProfile.skinTone &&
       stylingInputs.occasion
     );
-    if (!ready) { setPreviewProducts([]); setPreviewLoading(false); setPreviewError(""); return; }
+    if (!ready) { 
+      setPreviewProducts([]); 
+      setPreviewLoading(false); 
+      setPreviewError(""); 
+      return; 
+    }
+
+    // Cancel any existing preview request
+    if (pendingRequestRef.current) {
+      pendingRequestRef.current.cancel();
+    }
 
     setPreviewLoading(true);
     setPreviewError("");
+    
     const timer = setTimeout(async () => {
       try {
+        // Check if component is still mounted
+        if (!isComponentMountedRef.current) return;
+
         const recommendationData = {
           productType: stylingInputs.productType === "clothing" ? "Dress" : "Footwear",
           occasion: stylingInputs.occasion,
@@ -549,20 +618,66 @@ export default function Stylist() {
           radius: 10,
           useLocationFilter
         };
-        const res = await axiosClient.post("/stylist/recommend", recommendationData);
+
+        // Create cancelable request for preview
+        const cancelTokenSource = axios.CancelToken.source();
+        pendingRequestRef.current = cancelTokenSource;
+
+        const res = await axiosClient.post("/stylist/recommend", recommendationData, {
+          cancelToken: cancelTokenSource.token,
+          timeout: 20000 // 20 second timeout for preview requests
+        });
+
+        // Check if component is still mounted
+        if (!isComponentMountedRef.current) return;
+
         setPreviewProducts((res.data || []).slice(0, 12));
       } catch (e) {
+        // Check if component is still mounted
+        if (!isComponentMountedRef.current) return;
+
+        // Handle cancellation separately
+        if (e.message === 'canceled') {
+          console.log("🔄 Preview request was cancelled");
+          return;
+        }
+
         setPreviewProducts([]);
         setPreviewError("Failed to load preview products");
       } finally {
-        setPreviewLoading(false);
+        // Only update state if component is still mounted
+        if (isComponentMountedRef.current) {
+          setPreviewLoading(false);
+        }
       }
     }, 400);
-    return () => clearTimeout(timer);
+
+    return () => {
+      clearTimeout(timer);
+      if (pendingRequestRef.current) {
+        pendingRequestRef.current.cancel();
+      }
+    };
   }, [userProfile.ageCategory, userProfile.gender, userProfile.skinTone, stylingInputs.occasion, stylingInputs.productType, stylingInputs.budget, stylingInputs.colorPreference]);
 
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Loading State Overlay */}
+      {loading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-md mx-4 text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary-600 mx-auto mb-4"></div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">Generating Recommendations</h3>
+            <p className="text-gray-600 mb-4">This may take a few moments. Please don't navigate away from this page.</p>
+            <div className="text-sm text-gray-500">
+              <p>• Analyzing your preferences</p>
+              <p>• Searching nearby shops</p>
+              <p>• Calculating best matches</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast Notification */}
       {showToast && (
         <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg animate-fade-in ${
@@ -746,6 +861,11 @@ export default function Stylist() {
                   "Get AI Recommendations"
                 )}
               </button>
+              {loading && (
+                <div className="text-center text-sm text-gray-600 mt-2">
+                  This may take a few moments. Please don't navigate away.
+                </div>
+              )}
               <div className="pt-2 flex items-center gap-3">
                 <input
                   id="useLocationFilter"
@@ -799,11 +919,33 @@ export default function Stylist() {
         {/* Error Display */}
         {error && (
           <div className="mt-8 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl animate-fade-in">
-            <div className="flex items-center">
-              <span className="mr-2">⚠️</span>
-              {error}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <span className="mr-2">⚠️</span>
+                <div>
+                  <p className="font-semibold">Recommendation Failed</p>
+                  <p className="text-sm">{error}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setError("")}
+                className="text-red-500 hover:text-red-700 text-lg"
+              >
+                ×
+              </button>
             </div>
-      </div>
+            {error.includes('timeout') && (
+              <div className="mt-3 p-3 bg-red-100 rounded-lg">
+                <p className="text-sm font-medium">💡 Tips to avoid timeouts:</p>
+                <ul className="text-xs mt-1 space-y-1">
+                  <li>• Ensure you have a stable internet connection</li>
+                  <li>• Try again in a few moments</li>
+                  <li>• Reduce the search radius if using location filter</li>
+                  <li>• Check if your profile information is complete</li>
+                </ul>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Recommendations Display */}

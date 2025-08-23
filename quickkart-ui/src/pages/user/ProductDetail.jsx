@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
 import { useCart } from "../../contexts/CartContext";
@@ -13,20 +13,60 @@ export default function ProductDetail() {
   const [adding, setAdding] = useState(false);
   const [selectedSize, setSelectedSize] = useState("");
 
+  // Request cancellation and cleanup
+  const abortControllerRef = useRef(null);
+  const isComponentMountedRef = useRef(true);
+
   useEffect(() => {
     const loadProduct = async () => {
       try {
+        // Cancel any existing request
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        
+        // Create new abort controller
+        abortControllerRef.current = new AbortController();
+        
         setLoading(true);
         setError("");
-        const res = await axiosClient.get(`/user/products/${productId}`);
+        const res = await axiosClient.get(`/user/products/${productId}`, {
+          signal: abortControllerRef.current.signal,
+          timeout: 20000 // 20 second timeout
+        });
+        
+        // Check if component is still mounted
+        if (!isComponentMountedRef.current) return;
+        
         setProduct(res.data);
       } catch (err) {
+        // Check if component is still mounted
+        if (!isComponentMountedRef.current) return;
+        
+        // Handle cancellation separately
+        if (err.name === 'AbortError') {
+          console.log("🔄 Product request was cancelled");
+          return;
+        }
+        
         setError("Failed to load product");
       } finally {
-        setLoading(false);
+        // Only update state if component is still mounted
+        if (isComponentMountedRef.current) {
+          setLoading(false);
+        }
       }
     };
+    
     loadProduct();
+    
+    // Cleanup function
+    return () => {
+      isComponentMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [productId]);
 
   const handleAddToCart = async () => {

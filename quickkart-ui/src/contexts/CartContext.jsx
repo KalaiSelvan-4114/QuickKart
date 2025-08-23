@@ -24,7 +24,9 @@ export const CartProvider = ({ children }) => {
   const loadCart = async (options = { silent: false }) => {
     try {
       if (!options.silent) setLoading(true);
-      const res = await axiosClient.get('/user/cart');
+      const res = await axiosClient.get('/user/cart', {
+        timeout: 20000 // 20 second timeout
+      });
       
       // The backend now returns properly populated cart data
       setCart(res.data);
@@ -38,7 +40,9 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = async (productId, quantity = 1, selectedSize = null) => {
     try {
-      const res = await axiosClient.post('/user/cart', { productId, quantity, selectedSize });
+      const res = await axiosClient.post('/user/cart', { productId, quantity, selectedSize }, {
+        timeout: 25000 // 25 second timeout
+      });
       
       if (res.data.success) {
         // Reload cart to get updated data
@@ -57,7 +61,9 @@ export const CartProvider = ({ children }) => {
 
   const updateCartItem = async (itemId, quantity) => {
     try {
-      const res = await axiosClient.put(`/user/cart/${itemId}`, { quantity });
+      const res = await axiosClient.put(`/user/cart/${itemId}`, { quantity }, {
+        timeout: 20000 // 20 second timeout
+      });
       
       if (res.data.success) {
         await loadCart({ silent: true });
@@ -75,7 +81,9 @@ export const CartProvider = ({ children }) => {
 
   const removeFromCart = async (itemId) => {
     try {
-      const res = await axiosClient.delete(`/user/cart/${itemId}`);
+      const res = await axiosClient.delete(`/user/cart/${itemId}`, {
+        timeout: 20000 // 20 second timeout
+      });
       
       if (res.data.success) {
         await loadCart({ silent: true });

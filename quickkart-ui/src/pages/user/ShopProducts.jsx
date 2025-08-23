@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
 import { useCart } from "../../contexts/CartContext";
@@ -22,32 +22,82 @@ export default function ShopProducts() {
   });
   const [shopUpi, setShopUpi] = useState({ upiVpa: "", upiName: "" });
 
+  // Request cancellation and cleanup
+  const abortControllerRef = useRef(null);
+  const isComponentMountedRef = useRef(true);
+
   useEffect(() => {
     loadShopAndProducts();
     loadShopUpi();
+    
+    // Cleanup function
+    return () => {
+      isComponentMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [shopId]);
 
   const loadShopAndProducts = async () => {
     try {
+      // Cancel any existing request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      
+      // Create new abort controller
+      abortControllerRef.current = new AbortController();
+      
       setLoading(true);
       const [shopRes, productsRes] = await Promise.all([
-        axiosClient.get(`/user/shops/${shopId}`),
-        axiosClient.get(`/user/shops/${shopId}/products`)
+        axiosClient.get(`/user/shops/${shopId}`, {
+          signal: abortControllerRef.current.signal,
+          timeout: 20000 // 20 second timeout
+        }),
+        axiosClient.get(`/user/shops/${shopId}/products`, {
+          signal: abortControllerRef.current.signal,
+          timeout: 20000 // 20 second timeout
+        })
       ]);
+      
+      // Check if component is still mounted
+      if (!isComponentMountedRef.current) return;
+      
       setShop(shopRes.data);
       setProducts(productsRes.data);
     } catch (err) {
+      // Check if component is still mounted
+      if (!isComponentMountedRef.current) return;
+      
+      // Handle cancellation separately
+      if (err.name === 'AbortError') {
+        console.log("🔄 Shop/Products request was cancelled");
+        return;
+      }
+      
       setError("Failed to load shop and products");
     } finally {
-      setLoading(false);
+      // Only update state if component is still mounted
+      if (isComponentMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   const loadShopUpi = async () => {
     try {
-      const res = await axiosClient.get(`/user/shops/${shopId}/upi`);
+      const res = await axiosClient.get(`/user/shops/${shopId}/upi`, {
+        timeout: 15000 // 15 second timeout
+      });
+      
+      // Check if component is still mounted
+      if (!isComponentMountedRef.current) return;
+      
       setShopUpi(res.data || { upiVpa: "", upiName: "" });
-    } catch (_) {}
+    } catch (_) {
+      // Silently fail for UPI loading
+    }
   };
 
   const handleAddToCart = async (product) => {

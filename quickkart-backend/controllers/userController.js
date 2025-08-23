@@ -3,10 +3,15 @@ const Product = require("../models/Product");
 const Shop = require("../models/Shop");
 const Order = require("../models/Order");
 
+// Add timeout handling for database queries
+const QUERY_TIMEOUT = 20000; // 20 seconds
+
 /** GET user profile */
 exports.getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).populate("wishlist cart");
+    const user = await User.findById(req.user.id)
+      .populate("wishlist cart")
+      .maxTimeMS(QUERY_TIMEOUT - 5000); // Leave 5 seconds for processing
     res.json(user);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -16,7 +21,8 @@ exports.getProfile = async (req, res) => {
 /** UPDATE profile */
 exports.updateProfile = async (req, res) => {
   try {
-    await User.findByIdAndUpdate(req.user.id, req.body);
+    await User.findByIdAndUpdate(req.user.id, req.body)
+      .maxTimeMS(QUERY_TIMEOUT - 5000);
     res.json({ success: true, message: "Profile updated" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -26,7 +32,9 @@ exports.updateProfile = async (req, res) => {
 /** Get all products (for development) */
 exports.getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find().limit(20); // Limit to 20 products for performance
+    const products = await Product.find()
+      .limit(20) // Limit to 20 products for performance
+      .maxTimeMS(QUERY_TIMEOUT - 5000);
     res.json(products);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -36,7 +44,9 @@ exports.getAllProducts = async (req, res) => {
 /** Get single product by ID */
 exports.getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.productId).populate({ path: 'shop', select: 'name _id' });
+    const product = await Product.findById(req.params.productId)
+      .populate({ path: 'shop', select: 'name _id' })
+      .maxTimeMS(QUERY_TIMEOUT - 5000);
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
@@ -60,8 +70,11 @@ function getDistance(lat1, lon1, lat2, lon2) {
 
 exports.getNearbyStocks = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
-    const products = await Product.find();
+    const user = await User.findById(req.user.id)
+      .maxTimeMS(QUERY_TIMEOUT - 10000); // Leave 10 seconds for filtering
+    const products = await Product.find()
+      .maxTimeMS(QUERY_TIMEOUT - 15000); // Leave 15 seconds for filtering
+    
     const filtered = products.filter(p => {
       if (p.location && user.location) {
         return getDistance(user.location.lat, user.location.lng, p.location.lat, p.location.lng) <= 10;
@@ -77,16 +90,19 @@ exports.getNearbyStocks = async (req, res) => {
 /** Get nearby shops */
 exports.getNearbyShops = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id)
+      .maxTimeMS(QUERY_TIMEOUT - 10000); // Leave 10 seconds for processing
     const radiusKm = Math.max(1, Math.min(50, Number(req.query.radius) || 10));
 
     // If user has no location, just return approved shops
     if (!user || !user.location || typeof user.location.lat !== 'number' || typeof user.location.lng !== 'number') {
-      const allApproved = await Shop.find({ approved: true });
+      const allApproved = await Shop.find({ approved: true })
+        .maxTimeMS(QUERY_TIMEOUT - 15000); // Leave 15 seconds for processing
       return res.json(allApproved);
     }
 
-    const shops = await Shop.find({ approved: true });
+    const shops = await Shop.find({ approved: true })
+      .maxTimeMS(QUERY_TIMEOUT - 15000); // Leave 15 seconds for processing
 
     const nearby = shops
       .filter(s => s.location && typeof s.location.lat === 'number' && typeof s.location.lng === 'number')
