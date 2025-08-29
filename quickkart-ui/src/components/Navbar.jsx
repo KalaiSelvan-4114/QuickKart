@@ -163,12 +163,16 @@ export default function Navbar() {
                   )}
                   {userType === "shop" && (
                     <>
+                      <Link to="/shop/dashboard" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/shop/dashboard') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>📊 Dashboard</Link>
                       <Link to="/shop/stock" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/shop/stock') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>📦 Manage Stock</Link>
                       <Link to="/shop/orders" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/shop/orders') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>📋 Orders</Link>
                     </>
                   )}
                   {userType === "admin" && (
-                    <Link to="/admin/pending" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/admin/pending') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>🛡️ Pending Shops</Link>
+                    <>
+                      <Link to="/admin/dashboard" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/admin/dashboard') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>📊 Dashboard</Link>
+                      <Link to="/admin/pending" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/admin/pending') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>🛡️ Pending Shops</Link>
+                    </>
                   )}
                   <button onClick={handleLogout} className="w-full text-left px-3 py-2 text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg">Logout</button>
                 </>
