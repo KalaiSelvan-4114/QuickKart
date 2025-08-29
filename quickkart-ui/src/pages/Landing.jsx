@@ -64,6 +64,12 @@ export default function Landing() {
             >
               Sign In
             </Link>
+            <Link
+              to="/delivery/scan"
+              className="btn-accent text-lg px-8 py-4"
+            >
+              Scan
+            </Link>
           </div>
         </div>
 

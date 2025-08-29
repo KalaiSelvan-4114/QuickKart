@@ -75,7 +75,7 @@ export default function Navbar() {
                 <Link to="/shop/login" className="nav-link">Shop Login</Link>
                 <Link to="/delivery-head/login" className="nav-link">🚚 Delivery Head</Link>
                 <Link to="/admin/login" className="nav-link">Admin Login</Link>
-                <Link to="/coordinate-demo" className="nav-link">📍 Coordinates</Link>
+                <Link to="/delivery/scan" className="nav-link">📷 Scan</Link>
                 <div className="ml-4">
                   <Link to="/user/signup" className="btn-primary text-sm px-4 py-2">Get Started</Link>
                 </div>
@@ -147,7 +147,7 @@ export default function Navbar() {
                   <Link to="/shop/login" className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg" onClick={() => setShowMobileMenu(false)}>Shop Login</Link>
                   <Link to="/delivery-head/login" className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg" onClick={() => setShowMobileMenu(false)}>🚚 Delivery Head</Link>
                   <Link to="/admin/login" className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg" onClick={() => setShowMobileMenu(false)}>Admin Login</Link>
-                  <Link to="/coordinate-demo" className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg" onClick={() => setShowMobileMenu(false)}>📍 Coordinates</Link>
+                  <Link to="/delivery/scan" className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg" onClick={() => setShowMobileMenu(false)}>📷 Scan</Link>
                   <Link to="/user/signup" className="block px-3 py-2 text-base font-medium text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-lg" onClick={() => setShowMobileMenu(false)}>Get Started</Link>
                 </>
               ) : (
