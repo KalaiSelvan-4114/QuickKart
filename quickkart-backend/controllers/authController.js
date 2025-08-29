@@ -2,7 +2,6 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Shop = require("../models/Shop");
-const DeliveryAgent = require("../models/DeliveryAgent");
 
 /** ---------------------------
  *  USER SIGNUP
@@ -112,32 +111,99 @@ exports.adminLogin = async (req, res) => {
 };
 
 /** ---------------------------
- *  DELIVERY AGENT SIGNUP/LOGIN
+ *  DELIVERY HEAD LOGIN
  *  -------------------------- */
-exports.deliverySignup = async (req, res) => {
+exports.deliveryHeadLogin = async (req, res) => {
   try {
-    const { agentId, aadhar, name, phone, email, password, location } = req.body;
-    const existing = await DeliveryAgent.findOne({ $or: [{ email }, { aadhar }, { agentId }] });
-    if (existing) return res.status(400).json({ error: "Delivery agent already exists" });
-    const hash = await bcrypt.hash(password, 10);
-    const agent = new DeliveryAgent({ agentId, aadhar, name, phone, email, password: hash, location });
-    await agent.save();
-    res.json({ success: true, message: "Delivery agent registered" });
+    const { email, password } = req.body;
+    console.log("🔐 Delivery Head login attempt:", email);
+    
+    const DeliveryHead = require("../models/DeliveryHead");
+    const deliveryHead = await DeliveryHead.findOne({ email });
+    
+    if (!deliveryHead) {
+      console.log("❌ Delivery Head login failed: User not found");
+      return res.status(400).json({ error: "Invalid credentials" });
+    }
+
+    const valid = await bcrypt.compare(password, deliveryHead.password);
+    if (!valid) {
+      console.log("❌ Delivery Head login failed: Invalid password");
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    if (!deliveryHead.isApproved) {
+      console.log("❌ Delivery Head login failed: Account not approved");
+      return res.status(403).json({ error: "Account not yet approved by admin" });
+    }
+
+    const token = jwt.sign({ 
+      id: deliveryHead._id, 
+      email: deliveryHead.email,
+      type: 'delivery-head'
+    }, process.env.JWT_SECRET);
+    
+    console.log("✅ Delivery Head login successful:", email);
+    res.json({ 
+      success: true,
+      token,
+      deliveryHead: {
+        id: deliveryHead._id,
+        name: deliveryHead.name,
+        email: deliveryHead.email
+      }
+    });
   } catch (err) {
+    console.error("❌ Delivery Head login error:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
-exports.deliveryLogin = async (req, res) => {
+/** ---------------------------
+ *  DELIVERY HEAD REGISTRATION
+ *  -------------------------- */
+exports.deliveryHeadRegister = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const agent = await DeliveryAgent.findOne({ email });
-    if (!agent) return res.status(400).json({ error: "Agent not found" });
-    const valid = await bcrypt.compare(password, agent.password);
-    if (!valid) return res.status(401).json({ error: "Incorrect password" });
-    const token = jwt.sign({ id: agent._id, email: agent.email, role: 'delivery' }, process.env.JWT_SECRET);
-    res.json({ token });
+    const { username, password, name, email, phone, aadhar } = req.body;
+    console.log("🔐 Delivery Head registration attempt:", email);
+    
+    const DeliveryHead = require("../models/DeliveryHead");
+    
+    // Check if delivery head already exists
+    const existing = await DeliveryHead.findOne({ 
+      $or: [{ email }, { username }] 
+    });
+    
+    if (existing) {
+      console.log("❌ Delivery Head registration failed: Already exists");
+      return res.status(400).json({ error: "Delivery Head with this email or username already exists" });
+    }
+
+    // Hash password
+    const hash = await bcrypt.hash(password, 12);
+
+    // Create new delivery head
+    const deliveryHead = new DeliveryHead({
+      username,
+      password: hash,
+      name,
+      email,
+      phone,
+      aadhar,
+      isApproved: false // Requires admin approval
+    });
+
+    await deliveryHead.save();
+    
+    console.log("✅ Delivery Head registration successful:", email);
+    res.status(201).json({ 
+      success: true, 
+      message: "Delivery Head registered successfully. Please wait for admin approval." 
+    });
   } catch (err) {
+    console.error("❌ Delivery Head registration error:", err);
     res.status(500).json({ error: err.message });
   }
 };
+
+

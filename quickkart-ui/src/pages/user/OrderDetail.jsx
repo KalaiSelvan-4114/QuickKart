@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
+import QRCode from "qrcode";
 
 export default function OrderDetail() {
   const { orderId } = useParams();
@@ -41,13 +42,12 @@ export default function OrderDetail() {
           <h1 className="text-2xl font-bold">Order #{order._id?.slice(-6)}</h1>
           <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-800 text-sm">{order.status}</span>
         </div>
-        {order.deliveryOTP && (
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
-            <div className="font-semibold text-lg mb-2">🔐 Delivery OTP: {order.deliveryOTP}</div>
-            <div className="text-sm">
-              Share this 6-digit OTP with the delivery agent to confirm delivery.<br/>
-              <span className="text-orange-600">⚠️ OTP expires in 24 hours</span>
-            </div>
+        {/* QR-based delivery: no OTP shown to user */}
+        {order?.status === 'out_for_delivery' && order?.qrToken && (
+          <div className="mb-6 p-4 bg-green-50 rounded-lg">
+            <div className="font-semibold mb-2">Your Delivery QR</div>
+            <QrBlock token={order.qrToken} />
+            <div className="text-xs text-gray-600 mt-2">Show this QR to the delivery agent for verification.</div>
           </div>
         )}
         <div className="space-y-3 mb-6">
@@ -83,6 +83,29 @@ export default function OrderDetail() {
         <div className="mt-6">
           <Link to="/user/orders" className="btn-secondary">← Back to Orders</Link>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function QrBlock({ token }) {
+  const [dataUrl, setDataUrl] = useState("");
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const url = await QRCode.toDataURL(token, { width: 220, margin: 1 });
+        if (mounted) setDataUrl(url);
+      } catch (_) {}
+    })();
+    return () => { mounted = false; };
+  }, [token]);
+  return (
+    <div className="flex items-center gap-4">
+      {dataUrl ? <img src={dataUrl} alt="Delivery QR" className="w-40 h-40 bg-white p-2 rounded" /> : <div className="w-40 h-40 bg-gray-200 animate-pulse rounded" />}
+      <div>
+        <div className="text-xs text-gray-500">Token</div>
+        <div className="font-mono text-sm break-all select-all">{token}</div>
       </div>
     </div>
   );

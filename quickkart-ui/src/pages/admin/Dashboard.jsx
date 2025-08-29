@@ -11,13 +11,42 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
   const [currentTab, setCurrentTab] = useState("overview");
 
+  const tabs = [
+    { id: "overview", name: "Overview", icon: "📊" },
+    { id: "orders", name: "Orders & Sales", icon: "📦" },
+    { id: "pending-shops", name: "Pending Shops", icon: "🏪" },
+    { id: "pending-delivery", name: "Pending Delivery Heads", icon: "🚚" },
+    { id: "payouts", name: "Payouts", icon: "💰" }
+  ];
+
   useEffect(() => {
+    console.log("🔄 Admin Dashboard component mounted");
     loadDashboardData();
   }, []);
+
+  const testAdminAuth = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const role = localStorage.getItem("authRole");
+      console.log("🔍 Debug - Token:", token ? "Present" : "Missing");
+      console.log("🔍 Debug - Role:", role);
+      
+      const res = await axiosClient.get("/admin/test-auth");
+      console.log("✅ Admin auth test:", res.data);
+      alert(`Admin authenticated! Admin ID: ${res.data.adminId}`);
+    } catch (err) {
+      console.error("❌ Admin auth test failed:", err);
+      alert("Admin authentication failed: " + (err.response?.data?.error || err.message));
+    }
+  };
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
+      setError("");
+
+      console.log("🔄 Loading admin dashboard data...");
+
       const [statsRes, ordersRes, shopsRes, deliveryHeadsRes, payoutsRes] = await Promise.all([
         axiosClient.get("/admin/orders/stats"),
         axiosClient.get("/admin/orders"),
@@ -26,13 +55,37 @@ export default function AdminDashboard() {
         axiosClient.get("/admin/payouts/summary")
       ]);
 
+      console.log("✅ Admin dashboard data loaded:", {
+        stats: statsRes.data,
+        orders: ordersRes.data,
+        shops: shopsRes.data,
+        deliveryHeads: deliveryHeadsRes.data,
+        payouts: payoutsRes.data
+      });
+
       setStats(statsRes.data);
-      setOrders(ordersRes.data.orders);
+      setOrders(ordersRes.data.orders || ordersRes.data);
       setPendingShops(shopsRes.data);
       setPendingDeliveryHeads(deliveryHeadsRes.data);
       setPayoutSummary(payoutsRes.data);
     } catch (err) {
-      setError("Failed to load dashboard data");
+      console.error("❌ Admin dashboard loading error:", err);
+      console.error("Error details:", {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      });
+      
+      let errorMessage = "Failed to load dashboard data";
+      if (err.response?.status === 401) {
+        errorMessage = "Authentication failed. Please login again.";
+      } else if (err.response?.status === 404) {
+        errorMessage = "Admin data not found.";
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -87,33 +140,66 @@ export default function AdminDashboard() {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  // Simple loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading admin dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
+  // Simple error state
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Dashboard Error</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <div className="space-y-2">
+            <button
+              onClick={loadDashboardData}
+              className="w-full bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700"
+            >
+              Retry
+            </button>
+            <button
+              onClick={testAdminAuth}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            >
+              Test Authentication
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Simple dashboard content
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">🛡️ Admin Dashboard</h1>
-
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            {error}
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="mx-auto h-16 w-16 bg-gradient-to-br from-primary-400 to-primary-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+            <span className="text-2xl">👑</span>
           </div>
-        )}
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
+          <p className="text-gray-600">Manage QuickKart platform</p>
+        </div>
 
         {/* Tab Navigation */}
         <div className="mb-8 border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
-            {[
-              { id: "overview", name: "Overview", icon: "📊" },
-              { id: "orders", name: "Orders & Sales", icon: "📦" },
-              { id: "shops", name: "Pending Shops", icon: "🏪" },
-              { id: "delivery-heads", name: "Pending Delivery Heads", icon: "🚚" },
-              { id: "payouts", name: "Payouts", icon: "💸" }
-            ].map((tab) => (
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setCurrentTab(tab.id)}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                   currentTab === tab.id
                     ? "border-primary-500 text-primary-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -125,277 +211,193 @@ export default function AdminDashboard() {
           </nav>
         </div>
 
-        {/* Overview Tab */}
-        {currentTab === "overview" && stats && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+        {/* Tab Content */}
+        {currentTab === "overview" && (
+          <div>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <span className="text-2xl">📦</span>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Orders</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.orderCounts.total}</p>
+                  <span className="text-2xl mr-3">📦</span>
+                  <div>
+                    <p className="text-sm text-gray-600">Total Orders</p>
+                    <p className="text-2xl font-bold">{stats?.totalOrders || 0}</p>
                   </div>
                 </div>
               </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+              <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <span className="text-2xl">✅</span>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Delivered</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.orderCounts.delivered}</p>
+                  <span className="text-2xl mr-3">💰</span>
+                  <div>
+                    <p className="text-sm text-gray-600">Total Revenue</p>
+                    <p className="text-2xl font-bold">₹{stats?.totalRevenue || 0}</p>
                   </div>
                 </div>
               </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+              <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex items-center">
-                  <div className="p-2 bg-yellow-100 rounded-lg">
-                    <span className="text-2xl">💰</span>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                    <p className="text-2xl font-semibold text-gray-900">₹{stats.revenue.total.toLocaleString()}</p>
+                  <span className="text-2xl mr-3">🏪</span>
+                  <div>
+                    <p className="text-sm text-gray-600">Pending Shops</p>
+                    <p className="text-2xl font-bold">{pendingShops.length}</p>
                   </div>
                 </div>
               </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+              <div className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <span className="text-2xl">📈</span>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Avg Order Value</p>
-                    <p className="text-2xl font-semibold text-gray-900">₹{Math.round(stats.revenue.average)}</p>
+                  <span className="text-2xl mr-3">🚚</span>
+                  <div>
+                    <p className="text-sm text-gray-600">Pending Delivery Heads</p>
+                    <p className="text-2xl font-bold">{pendingDeliveryHeads.length}</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                <h3 className="text-lg font-semibold mb-4">Order Status Breakdown</h3>
-                <div className="space-y-3">
-                  {Object.entries(stats.orderCounts).map(([status, count]) => (
-                    <div key={status} className="flex justify-between items-center">
-                      <span className="capitalize text-gray-600">{status.replace(/([A-Z])/g, ' $1')}</span>
-                      <span className="font-semibold">{count}</span>
-                    </div>
-                  ))}
+            {/* Recent Activity */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+              <div className="space-y-3">
+                <div className="flex items-center text-sm text-gray-600">
+                  <span className="w-2 h-2 bg-green-400 rounded-full mr-3"></span>
+                  <span>Dashboard loaded successfully</span>
                 </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                <h3 className="text-lg font-semibold mb-4">Monthly Revenue</h3>
-                <div className="space-y-2">
-                  {stats.monthlyRevenue.map((month) => (
-                    <div key={month._id} className="flex justify-between items-center">
-                      <span className="text-gray-600">
-                        {new Date(2024, month._id - 1).toLocaleDateString('en-US', { month: 'long' })}
-                      </span>
-                      <span className="font-semibold">₹{month.revenue.toLocaleString()}</span>
-                    </div>
-                  ))}
+                <div className="flex items-center text-sm text-gray-600">
+                  <span className="w-2 h-2 bg-blue-400 rounded-full mr-3"></span>
+                  <span>{orders.length} orders in system</span>
+                </div>
+                <div className="flex items-center text-sm text-gray-600">
+                  <span className="w-2 h-2 bg-yellow-400 rounded-full mr-3"></span>
+                  <span>{pendingShops.length} shops pending approval</span>
+                </div>
+                <div className="flex items-center text-sm text-gray-600">
+                  <span className="w-2 h-2 bg-purple-400 rounded-full mr-3"></span>
+                  <span>{pendingDeliveryHeads.length} delivery heads pending approval</span>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Orders Tab */}
         {currentTab === "orders" && (
-          <div className="bg-white rounded-lg shadow-md border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">All Orders</h2>
-            </div>
-            <div className="p-6">
-              {orders.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No orders found</p>
-              ) : (
-                <div className="space-y-4">
-                  {orders.map((order) => (
-                    <div key={order._id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <p className="font-medium text-gray-900">Order #{order._id.slice(-6)}</p>
-                          <p className="text-sm text-gray-600">
-                            {order.user?.firstName} {order.user?.lastName} • {order.user?.phone}
-                          </p>
-                          <p className="text-sm text-gray-600">Shop: {order.shop?.name}</p>
-                        </div>
-                        <div className="text-right">
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                            order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {order.status}
-                          </span>
-                          <p className="text-sm font-medium mt-1">₹{order.total}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="text-sm text-gray-600 mb-3">
-                        <p>{order.items?.length || 0} items • {new Date(order.createdAt).toLocaleDateString()}</p>
-                      </div>
-
-                      {order.status === 'delivered' && !order.settlement?.paidToShop && (
-                        <button
-                          onClick={() => settleOrderWithShop(order._id)}
-                          className="btn-primary text-sm px-3 py-1"
-                        >
-                          Settle with Shop
-                        </button>
-                      )}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Orders & Sales</h3>
+            {orders.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No orders found</p>
+            ) : (
+              <div className="space-y-4">
+                {orders.slice(0, 10).map((order) => (
+                  <div key={order._id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div>
+                      <p className="font-medium">Order #{order._id.slice(-8)}</p>
+                      <p className="text-sm text-gray-600">
+                        {order.user?.firstName} {order.user?.lastName}
+                      </p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Pending Shops Tab */}
-        {currentTab === "shops" && (
-          <div className="bg-white rounded-lg shadow-md border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Pending Shop Approvals</h2>
-            </div>
-            <div className="p-6">
-              {pendingShops.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No pending shops</p>
-              ) : (
-                <div className="space-y-4">
-                  {pendingShops.map((shop) => (
-                    <div key={shop._id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h3 className="font-medium text-gray-900">{shop.name}</h3>
-                          <p className="text-sm text-gray-600">{shop.ownerEmail}</p>
-                          <p className="text-sm text-gray-600">{shop.ownerPhone}</p>
-                          <p className="text-sm text-gray-600">{shop.address}, {shop.city}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => approveShop(shop._id)}
-                            className="btn-primary text-sm px-3 py-1"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => rejectShop(shop._id)}
-                            className="btn-secondary text-sm px-3 py-1 text-red-600 hover:text-red-700"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </div>
+                    <div className="text-right">
+                      <p className="font-medium">₹{order.total}</p>
+                      <p className="text-sm text-gray-600">{order.status}</p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Pending Delivery Heads Tab */}
-        {currentTab === "delivery-heads" && (
-          <div className="bg-white rounded-lg shadow-md border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Pending Delivery Head Approvals</h2>
-            </div>
-            <div className="p-6">
-              {pendingDeliveryHeads.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No pending delivery heads</p>
-              ) : (
-                <div className="space-y-4">
-                  {pendingDeliveryHeads.map((deliveryHead) => (
-                    <div key={deliveryHead._id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h3 className="font-medium text-gray-900">{deliveryHead.name}</h3>
-                          <p className="text-sm text-gray-600">@{deliveryHead.username}</p>
-                          <p className="text-sm text-gray-600">{deliveryHead.email}</p>
-                          <p className="text-sm text-gray-600">{deliveryHead.phone}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => approveDeliveryHead(deliveryHead._id)}
-                            className="btn-primary text-sm px-3 py-1"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => rejectDeliveryHead(deliveryHead._id)}
-                            className="btn-secondary text-sm px-3 py-1 text-red-600 hover:text-red-700"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Payouts Tab */}
-        {currentTab === "payouts" && payoutSummary && (
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-              <h3 className="text-lg font-semibold mb-4">Payout Summary</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Total Pending Amount</p>
-                  <p className="text-2xl font-semibold text-gray-900">₹{payoutSummary.totalPendingAmount.toLocaleString()}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Total Pending Orders</p>
-                  <p className="text-2xl font-semibold text-gray-900">{payoutSummary.totalPendingOrders}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Shops with Pending Payouts</p>
-                  <p className="text-2xl font-semibold text-gray-900">{payoutSummary.pendingPayouts.length}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md border border-gray-200">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Pending Payouts by Shop</h3>
-              </div>
-              <div className="p-6">
-                {payoutSummary.pendingPayouts.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">No pending payouts</p>
-                ) : (
-                  <div className="space-y-4">
-                    {payoutSummary.pendingPayouts.map((payout) => (
-                      <div key={payout._id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h4 className="font-medium text-gray-900">{payout.shopDetails.name}</h4>
-                            <p className="text-sm text-gray-600">{payout.shopDetails.ownerEmail}</p>
-                            <p className="text-sm text-gray-600">{payout.orderCount} orders</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-semibold text-gray-900">₹{payout.totalAmount.toLocaleString()}</p>
-                            <p className="text-sm text-gray-600">Pending</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
                   </div>
-                )}
+                ))}
               </div>
-            </div>
+            )}
+          </div>
+        )}
+
+        {currentTab === "pending-shops" && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Pending Shops</h3>
+            {pendingShops.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No pending shops</p>
+            ) : (
+              <div className="space-y-4">
+                {pendingShops.map((shop) => (
+                  <div key={shop._id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div>
+                      <p className="font-medium">{shop.name}</p>
+                      <p className="text-sm text-gray-600">{shop.ownerEmail}</p>
+                      <p className="text-sm text-gray-600">{shop.address}, {shop.city}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => approveShop(shop._id)}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => rejectShop(shop._id)}
+                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {currentTab === "pending-delivery" && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Pending Delivery Heads</h3>
+            {pendingDeliveryHeads.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">No pending delivery heads</p>
+            ) : (
+              <div className="space-y-4">
+                {pendingDeliveryHeads.map((deliveryHead) => (
+                  <div key={deliveryHead._id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div>
+                      <p className="font-medium">{deliveryHead.name}</p>
+                      <p className="text-sm text-gray-600">{deliveryHead.email}</p>
+                      <p className="text-sm text-gray-600">{deliveryHead.phone}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => approveDeliveryHead(deliveryHead._id)}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => rejectDeliveryHead(deliveryHead._id)}
+                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {currentTab === "payouts" && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Payouts Summary</h3>
+            {payoutSummary ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-600">Total Pending</p>
+                    <p className="text-2xl font-bold text-blue-800">₹{payoutSummary.totalPending || 0}</p>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <p className="text-sm text-green-600">Total Settled</p>
+                    <p className="text-2xl font-bold text-green-800">₹{payoutSummary.totalSettled || 0}</p>
+                  </div>
+                  <div className="p-4 bg-yellow-50 rounded-lg">
+                    <p className="text-sm text-yellow-600">Pending Orders</p>
+                    <p className="text-2xl font-bold text-yellow-800">{payoutSummary.pendingOrders || 0}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-8">No payout data available</p>
+            )}
           </div>
         )}
       </div>

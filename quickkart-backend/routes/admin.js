@@ -15,11 +15,20 @@ const {
   getPayoutSummary
 } = require("../controllers/adminController");
 
-// Public routes
-router.post('/login', login);
+// Public routes - login is now handled in /auth routes
+// router.post('/login', login);
 
 // Protected routes
 router.use(authenticateAdmin);
+
+// Debug endpoint to check authentication
+router.get('/test-auth', (req, res) => {
+  res.json({
+    message: "Admin authentication working",
+    adminId: req.admin.id,
+    adminEmail: req.admin.email
+  });
+});
 
 // Shop management
 router.get('/pending-shops', getPendingShops);

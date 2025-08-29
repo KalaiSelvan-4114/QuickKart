@@ -35,12 +35,12 @@ const orderSchema = new mongoose.Schema({
   total: { type: Number, required: true, min: 0 },
   status: { 
     type: String, 
-    enum: ["pending", "confirmed", "processing", "shipped", "out_for_delivery", "delivered", "cancelled"], 
+    enum: ["pending", "confirmed", "notify_delivery", "processing", "shipped", "out_for_delivery", "delivered", "cancelled"], 
     default: "pending" 
   },
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryBoy" },
-  deliveryOTP: { type: String },
-  otpExpiresAt: { type: Date },
+  qrToken: { type: String },
+  qrGeneratedAt: { type: Date },
   orderDate: { type: Date, default: Date.now },
   estimatedDelivery: { type: Date },
   trackingId: String,

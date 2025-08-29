@@ -1,72 +1,56 @@
 import { useState } from "react";
-import axiosDeliveryClient from "../../api/axiosDeliveryClient";
+import QrScanner from "../../components/QrScanner";
 
 export default function DeliveryScan() {
+  const [boyId, setBoyId] = useState("");
   const [orderId, setOrderId] = useState("");
-  const [otp, setOtp] = useState("");
+  const [qrToken, setQrToken] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [result, setResult] = useState(null);
 
-  const confirm = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!orderId.trim() || !otp.trim()) {
-      setMessage("Please enter both Order ID and OTP");
-      return;
-    }
-    
+    setLoading(true);
+    setResult(null);
     try {
-      setLoading(true);
-      setMessage("");
-      await axiosDeliveryClient.post(`/delivery/orders/${orderId}/confirm`, { otp });
-      setMessage("✅ Delivery confirmed successfully!");
-      setOrderId("");
-      setOtp("");
-    } catch (e) {
-      setMessage(e.response?.data?.error || 'Failed to confirm delivery');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000"}/delivery/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ boyId, orderId, qrToken })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to confirm delivery');
+      setResult({ type: 'success', message: 'Delivery confirmed successfully' });
+      setBoyId(""); setOrderId(""); setQrToken("");
+    } catch (err) {
+      setResult({ type: 'error', message: err.message });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4">
-      <div className="max-w-md w-full card">
-        <h1 className="text-2xl font-bold mb-4">🔐 Confirm Delivery</h1>
-        <p className="text-gray-600 mb-6 text-center">
-          Enter the Order ID and OTP provided by the customer to confirm delivery
-        </p>
-        <form onSubmit={confirm} className="space-y-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-12 px-4">
+      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
+        <h1 className="text-xl font-semibold mb-4">Delivery Confirmation</h1>
+        <p className="text-sm text-gray-600 mb-6">Enter your Delivery ID, Order ID, and the QR Token from the customer.</p>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Order ID</label>
-            <input 
-              className="input-field w-full" 
-              placeholder="Enter Order ID" 
-              value={orderId} 
-              onChange={e=>setOrderId(e.target.value)} 
-            />
+            <QrScanner onScan={(text)=>setQrToken(text)} onError={()=>{}} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Delivery OTP</label>
-            <input 
-              className="input-field w-full" 
-              placeholder="Enter 6-digit OTP" 
-              value={otp} 
-              onChange={e=>setOtp(e.target.value)}
-              maxLength={6}
-              pattern="[0-9]{6}"
-            />
+            <label className="block text-sm font-medium mb-1">Delivery ID</label>
+            <input value={boyId} onChange={e=>setBoyId(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="e.g., DB123" required />
           </div>
-          <button className="btn-primary w-full" disabled={loading}>
-            {loading ? 'Confirming...' : 'Confirm Delivery'}
-          </button>
+          <div>
+            <label className="block text-sm font-medium mb-1">Order ID</label>
+            <input value={orderId} onChange={e=>setOrderId(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="Paste Order ObjectId" required />
+          </div>
+          <button disabled={loading} className="w-full btn-primary py-2">{loading ? 'Confirming...' : 'Confirm Delivery'}</button>
         </form>
-        {message && (
-          <div className={`mt-4 p-3 rounded-lg text-sm ${
-            message.includes('✅') 
-              ? 'bg-green-50 text-green-800 border border-green-200' 
-              : 'bg-red-50 text-red-800 border border-red-200'
-          }`}>
-            {message}
+        {result && (
+          <div className={`mt-4 text-sm ${result.type === 'success' ? 'text-green-700 bg-green-50' : 'text-red-700 bg-red-50'} p-3 rounded`}>
+            {result.message}
           </div>
         )}
       </div>

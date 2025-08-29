@@ -5,8 +5,8 @@ const {
   shopSignup,
   shopLogin,
   adminLogin,
-  deliverySignup,
-  deliveryLogin
+  deliveryHeadLogin,
+  deliveryHeadRegister
 } = require("../controllers/authController");
 
 const router = express.Router();
@@ -22,8 +22,8 @@ router.post("/shop/login", shopLogin);
 // Admin Auth
 router.post("/admin/login", adminLogin);
 
-// Delivery Agent Auth
-router.post("/delivery/signup", deliverySignup);
-router.post("/delivery/login", deliveryLogin);
+// Delivery Head Auth
+router.post("/delivery-head/register", deliveryHeadRegister);
+router.post("/delivery-head/login", deliveryHeadLogin);
 
 module.exports = router;

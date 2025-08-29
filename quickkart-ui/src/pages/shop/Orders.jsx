@@ -6,6 +6,13 @@ export default function ShopOrders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all"); // all, pending, confirmed, delivered
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalOrders: 0,
+    hasNext: false,
+    hasPrev: false
+  });
 
   useEffect(() => {
     loadOrders();
@@ -16,8 +23,30 @@ export default function ShopOrders() {
       setLoading(true);
       setError("");
       const res = await axiosClient.get("/shop/orders");
-      setOrders(res.data);
+      
+      // Handle the response format from our backend
+      if (res.data.orders) {
+        setOrders(res.data.orders);
+        setPagination(res.data.pagination || {
+          currentPage: 1,
+          totalPages: 1,
+          totalOrders: res.data.orders.length,
+          hasNext: false,
+          hasPrev: false
+        });
+      } else {
+        // Fallback for direct array response
+        setOrders(Array.isArray(res.data) ? res.data : []);
+        setPagination({
+          currentPage: 1,
+          totalPages: 1,
+          totalOrders: Array.isArray(res.data) ? res.data.length : 0,
+          hasNext: false,
+          hasPrev: false
+        });
+      }
     } catch (err) {
+      console.error("Error loading orders:", err);
       if (err.response?.status === 401) {
         setError("Token required. Please re-open this page or re-login as Shop.");
       } else {
@@ -37,89 +66,23 @@ export default function ShopOrders() {
     </button>
   );
 
-  const confirmOrder = async (orderId) => {
+  const testShopAuth = async () => {
     try {
-      await axiosClient.put(`/shop/orders/${orderId}/confirm`);
+      const res = await axiosClient.get("/shop/debug");
+      console.log("Shop auth test:", res.data);
+      alert(`Shop authenticated! Shop ID: ${res.data.shopId}, Email: ${res.data.shopEmail}`);
+    } catch (err) {
+      console.error("Shop auth test failed:", err);
+      alert("Shop authentication failed: " + (err.response?.data?.error || err.message));
+    }
+  };
+
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      await axiosClient.put(`/shop/orders/${orderId}/status`, { status: newStatus });
       loadOrders(); // Reload orders to get updated status
     } catch (err) {
-      setError("Failed to confirm order");
-    }
-  };
-
-  const deliverOrder = async (orderId) => {
-    try {
-      await axiosClient.put(`/shop/orders/${orderId}/deliver`);
-      loadOrders(); // Reload orders to get updated status
-    } catch (err) {
-      setError("Failed to mark order as delivered");
-    }
-  };
-
-  const notifyDelivery = async (orderId) => {
-    try {
-      await axiosClient.put(`/shop/orders/${orderId}/notify-delivery`);
-      loadOrders(); // Reload orders to get updated status
-    } catch (err) {
-      setError("Failed to notify delivery");
-    }
-  };
-
-  const testConnection = async () => {
-    try {
-      console.log("🔄 Testing backend connection...");
-      const res = await axiosClient.get("/auth/user/login");
-      console.log("✅ Backend is reachable");
-      alert("✅ Backend server is running and reachable!");
-    } catch (err) {
-      console.error("❌ Backend connection failed:", err);
-      if (err.message.includes("Network Error")) {
-        alert("❌ Cannot connect to backend server. Please make sure the server is running on port 3000");
-      } else {
-        alert("❌ Backend connection issue: " + err.message);
-      }
-    }
-  };
-
-  const createTestShop = async () => {
-    try {
-      console.log("🔄 Creating test shop...");
-      const res = await axiosClient.post("/shop/create-test-shop");
-      console.log("✅ Test shop created:", res.data);
-      alert("Test shop created! You can now login with test@shop.com / test123");
-    } catch (err) {
-      console.error("❌ Failed to create test shop:", err);
-      console.error("❌ Error details:", {
-        message: err.message,
-        status: err.response?.status,
-        data: err.response?.data,
-        config: err.config
-      });
-      
-      let errorMessage = "Failed to create test shop";
-      if (err.response?.status === 0) {
-        errorMessage = "Cannot connect to server. Is the backend running?";
-      } else if (err.response?.status === 404) {
-        errorMessage = "Server endpoint not found";
-      } else if (err.response?.status === 500) {
-        errorMessage = "Server error: " + (err.response?.data?.error || "Unknown error");
-      } else if (err.message.includes("Network Error")) {
-        errorMessage = "Network error. Check if backend server is running on port 3000";
-      } else {
-        errorMessage = err.response?.data?.error || err.message;
-      }
-      
-      alert("❌ " + errorMessage);
-    }
-  };
-
-  const testAuth = async () => {
-    try {
-      const res = await axiosClient.get("/shop/test-auth");
-      console.log("Auth test response:", res.data);
-      alert("Authentication working! Shop ID: " + res.data.shopId);
-    } catch (err) {
-      console.error("Auth test failed:", err);
-      alert("Authentication failed: " + (err.response?.data?.error || err.message));
+      setError("Failed to update order status");
     }
   };
 
@@ -129,6 +92,8 @@ export default function ShopOrders() {
         return 'bg-yellow-100 text-yellow-800';
       case 'confirmed':
         return 'bg-blue-100 text-blue-800';
+      case 'notify_delivery':
+        return 'bg-orange-100 text-orange-800';
       case 'out_for_delivery':
         return 'bg-purple-100 text-purple-800';
       case 'delivered':
@@ -146,6 +111,8 @@ export default function ShopOrders() {
         return '⏳';
       case 'confirmed':
         return '✅';
+      case 'notify_delivery':
+        return '📢';
       case 'out_for_delivery':
         return '🚚';
       case 'delivered':
@@ -202,26 +169,12 @@ export default function ShopOrders() {
                 {error}
                 <RetryInline />
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={testConnection}
-                  className="text-sm bg-gray-500 text-white px-3 py-1 rounded-lg hover:bg-gray-600"
-                >
-                  Test Connection
-                </button>
-                <button
-                  onClick={createTestShop}
-                  className="text-sm bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600"
-                >
-                  Create Test Shop
-                </button>
-                <button
-                  onClick={testAuth}
-                  className="text-sm bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600"
-                >
-                  Test Auth
-                </button>
-              </div>
+              <button
+                onClick={testShopAuth}
+                className="text-sm bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600"
+              >
+                Test Shop Auth
+              </button>
             </div>
           </div>
         )}
@@ -233,6 +186,7 @@ export default function ShopOrders() {
               { key: "all", label: "All Orders", count: orders.length },
               { key: "pending", label: "Pending", count: orders.filter(o => o.status.toLowerCase() === 'pending').length },
               { key: "confirmed", label: "Confirmed", count: orders.filter(o => o.status.toLowerCase() === 'confirmed').length },
+              { key: "notify_delivery", label: "Notify Delivery", count: orders.filter(o => o.status.toLowerCase() === 'notify_delivery').length },
               { key: "out_for_delivery", label: "Out for Delivery", count: orders.filter(o => o.status.toLowerCase() === 'out_for_delivery').length },
               { key: "delivered", label: "Delivered", count: orders.filter(o => o.status.toLowerCase() === 'delivered').length }
             ].map(({ key, label, count }) => (
@@ -273,7 +227,7 @@ export default function ShopOrders() {
                       Order #{order._id.slice(-8).toUpperCase()}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      Placed on {new Date(order.orderDate).toLocaleDateString()}
+                      Placed on {new Date(order.createdAt || order.orderDate).toLocaleDateString()}
                     </p>
                     <p className="text-sm text-gray-600">
                       Customer: {order.user?.firstName} {order.user?.lastName}
@@ -311,7 +265,7 @@ export default function ShopOrders() {
 
                 {/* Order Items */}
                 <div className="space-y-4 mb-4">
-                  {order.items.map((item, index) => (
+                  {order.items?.map((item, index) => (
                     <div key={index} className="flex gap-4 p-3 bg-gray-50 rounded-lg">
                       <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                         {item.product?.image ? (
@@ -343,7 +297,7 @@ export default function ShopOrders() {
                 <div className="flex justify-between items-center mb-4 p-4 bg-gray-50 rounded-lg">
                   <div>
                     <p className="text-sm text-gray-600">Subtotal: ₹{order.subtotal}</p>
-                    <p className="text-sm text-gray-600">Delivery: ₹{order.deliveryFee}</p>
+                    <p className="text-sm text-gray-600">Delivery: ₹{order.deliveryFee || 0}</p>
                     <p className="font-semibold text-gray-800">Total: ₹{order.total}</p>
                   </div>
                   <div className="text-right">
@@ -358,7 +312,7 @@ export default function ShopOrders() {
                 <div className="flex flex-wrap gap-2">
                   {order.status === 'pending' && (
                     <button
-                      onClick={() => confirmOrder(order._id)}
+                      onClick={() => updateOrderStatus(order._id, 'confirmed')}
                       className="btn-primary text-sm"
                     >
                       ✅ Confirm Order
@@ -366,7 +320,15 @@ export default function ShopOrders() {
                   )}
                   {order.status === 'confirmed' && (
                     <button
-                      onClick={() => notifyDelivery(order._id)}
+                      onClick={() => updateOrderStatus(order._id, 'notify_delivery')}
+                      className="btn-accent text-sm"
+                    >
+                      🚚 Notify Delivery
+                    </button>
+                  )}
+                  {order.status === 'notify_delivery' && (
+                    <button
+                      onClick={() => updateOrderStatus(order._id, 'out_for_delivery')}
                       className="btn-accent text-sm"
                     >
                       🚚 Out for Delivery
@@ -374,7 +336,7 @@ export default function ShopOrders() {
                   )}
                   {order.status === 'out_for_delivery' && (
                     <button
-                      onClick={() => deliverOrder(order._id)}
+                      onClick={() => updateOrderStatus(order._id, 'delivered')}
                       className="btn-success text-sm"
                     >
                       📦 Mark Delivered
@@ -383,6 +345,33 @@ export default function ShopOrders() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {pagination.totalPages > 1 && (
+          <div className="mt-8 flex justify-center">
+            <div className="flex gap-2">
+              {pagination.hasPrev && (
+                <button
+                  onClick={() => loadOrders(pagination.currentPage - 1)}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Previous
+                </button>
+              )}
+              <span className="px-4 py-2 bg-primary-600 text-white rounded-lg">
+                Page {pagination.currentPage} of {pagination.totalPages}
+              </span>
+              {pagination.hasNext && (
+                <button
+                  onClick={() => loadOrders(pagination.currentPage + 1)}
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Next
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

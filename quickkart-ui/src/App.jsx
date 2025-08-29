@@ -25,6 +25,7 @@ import CoordinateDemo from "./pages/CoordinateDemo";
 import ShopLogin from "./pages/shop/Login";
 import ShopSignup from "./pages/shop/Signup";
 import ShopDashboard from "./pages/shop/Dashboard";
+import ShopProfile from "./pages/shop/Profile";
 import StockManage from "./pages/shop/StockManage";
 import ShopOrders from "./pages/shop/Orders";
 
@@ -38,6 +39,7 @@ import DeliveryHeadLogin from "./pages/DeliveryHead/Login";
 import DeliveryHeadRegister from "./pages/DeliveryHead/Register";
 import DeliveryHeadDashboard from "./pages/DeliveryHead/Dashboard";
 import DeliveryHeadBoys from "./pages/DeliveryHead/Boys";
+import DeliveryScan from "./pages/Delivery/Scan";
 
 export default function App() {
   return (
@@ -122,6 +124,11 @@ export default function App() {
                   <ShopDashboard />
                 </ProtectedRoute>
               } />
+              <Route path="/shop/profile" element={
+                <ProtectedRoute userType="shop">
+                  <ShopProfile />
+                </ProtectedRoute>
+              } />
               <Route path="/shop/stock" element={
                 <ProtectedRoute userType="shop">
                   <StockManage />
@@ -150,6 +157,8 @@ export default function App() {
                   <AdminPayouts />
                 </ProtectedRoute>
               } />
+              {/* Public delivery scan (no auth) */}
+              <Route path="/delivery/scan" element={<DeliveryScan />} />
               {/* Delivery Head */}
               <Route path="/delivery-head/login" element={<DeliveryHeadLogin />} />
               <Route path="/delivery-head/register" element={<DeliveryHeadRegister />} />

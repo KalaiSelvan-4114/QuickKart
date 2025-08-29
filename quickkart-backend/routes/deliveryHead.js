@@ -8,7 +8,9 @@ const {
   updateDeliveryBoy,
   deleteDeliveryBoy,
   getUnassignedOrders,
+  getAssignedOrders,
   assignOrder,
+  confirmDeliveryByQr,
   getDashboardStats
 } = require("../controllers/deliveryHeadController");
 
@@ -29,6 +31,8 @@ router.delete('/boys/:boyId', deleteDeliveryBoy);
 
 // Order management
 router.get('/orders/unassigned', getUnassignedOrders);
+router.get('/orders/assigned', getAssignedOrders);
 router.post('/orders/assign', assignOrder);
+router.post('/orders/confirm', confirmDeliveryByQr);
 
 module.exports = router;

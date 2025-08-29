@@ -1,7 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Shop = require("../models/Shop");
-const DeliveryAgent = require("../models/DeliveryAgent");
 const DeliveryHead = require("../models/DeliveryHead");
 
 /**
@@ -51,28 +50,7 @@ exports.authenticateShop = async (req, res, next) => {
   }
 };
 
-/**
- * Middleware to authenticate a Delivery Agent
- */
-exports.authenticateDelivery = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: "Token required" });
 
-    const token = authHeader.substring(7);
-    if (!token) return res.status(401).json({ error: "Token required" });
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const agent = await DeliveryAgent.findById(decoded.id);
-
-    if (!agent) return res.status(401).json({ error: "Delivery agent not found" });
-
-    req.delivery = { id: agent._id, email: agent.email };
-    next();
-  } catch (err) {
-    res.status(401).json({ error: "Invalid or expired token" });
-  }
-};
 
 /**
  * Middleware to authenticate a Delivery Head
@@ -114,16 +92,22 @@ exports.authenticateAdmin = (req, res, next) => {
     const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
     if (!token) return res.status(401).json({ error: "Token required" });
 
+    console.log("🔍 Admin Auth Debug - Token:", token.substring(0, 20) + "...");
+    
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("🔍 Admin Auth Debug - Decoded:", decoded);
 
     // Simple admin check from token payload
     if (!decoded.isAdmin) {
+      console.log("❌ Admin Auth Failed - isAdmin not found in token");
       return res.status(403).json({ error: "You are not authorized as Admin" });
     }
 
+    console.log("✅ Admin Auth Success - Admin ID:", decoded.id);
     req.admin = { id: decoded.id, email: decoded.email };
     next();
   } catch (err) {
+    console.error("❌ Admin Auth Error:", err.message);
     res.status(401).json({ error: "Invalid or expired token" });
   }
 };

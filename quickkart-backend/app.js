@@ -9,9 +9,10 @@ const userRoutes = require("./routes/user");
 const shopRoutes = require("./routes/shop");
 const adminRoutes = require("./routes/admin");
 const aiStylistRoutes = require("./routes/aiStylist");
-const deliveryRoutes = require("./routes/delivery");
+
 const deliveryHeadAuthRoutes = require("./routes/deliveryHeadAuth");
 const deliveryHeadRoutes = require("./routes/deliveryHead");
+const deliveryPublicRoutes = require("./routes/deliveryPublic");
 
 // Safe defaults for dev env
 if (!process.env.PORT) process.env.PORT = 3000;
@@ -39,9 +40,10 @@ app.use("/user", userRoutes);
 app.use("/shop", shopRoutes);
 app.use("/admin", adminRoutes);
 app.use("/stylist", aiStylistRoutes);
-app.use("/delivery", deliveryRoutes);
+
 app.use("/delivery-head/auth", deliveryHeadAuthRoutes);
 app.use("/delivery-head", deliveryHeadRoutes);
+app.use("/delivery", deliveryPublicRoutes);
 
 // Health check / root route for Render
 app.get("/", (req, res) => {

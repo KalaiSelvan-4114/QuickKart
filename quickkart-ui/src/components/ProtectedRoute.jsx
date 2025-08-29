@@ -5,23 +5,23 @@ export default function ProtectedRoute({ children, userType = "user" }) {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
 
   useEffect(() => {
-    let token;
-    if (userType === 'delivery') {
-      token = localStorage.getItem('delivery_token');
-    } else if (userType === 'delivery-head') {
-      token = localStorage.getItem('delivery_head_token');
-    } else {
-      token = localStorage.getItem("token");
+    // Prefer unified token key
+    let token = localStorage.getItem("token");
+
+    // Backward compatibility for older role-specific keys
+    if (!token) {
+      if (userType === 'delivery') {
+        token = localStorage.getItem('delivery_token');
+      } else if (userType === 'delivery-head') {
+        token = localStorage.getItem('delivery_head_token');
+      }
     }
     
     if (token) {
-      // Optionally validate JWT structure quickly (no decode to avoid env)
       setIsAuthenticated(true);
-      // Persist role if missing
       const storedRole = localStorage.getItem("authRole");
-      if (!storedRole) {
-        // Infer from route path
-        if (userType) localStorage.setItem("authRole", userType);
+      if (!storedRole && userType) {
+        localStorage.setItem("authRole", userType);
       }
     } else {
       setIsAuthenticated(false);
@@ -29,7 +29,6 @@ export default function ProtectedRoute({ children, userType = "user" }) {
   }, [userType]);
 
   if (isAuthenticated === null) {
-    // Loading state
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
         <div className="text-center">
@@ -45,12 +44,10 @@ export default function ProtectedRoute({ children, userType = "user" }) {
   }
 
   if (!isAuthenticated) {
-    // Redirect to appropriate login page
     const loginPath = `/${userType}/login`;
     return <Navigate to={loginPath} replace />;
   }
 
-  // Persist last successful route for seamless revisit redirects
   try {
     const path = window.location.pathname;
     if (path && typeof path === 'string') {

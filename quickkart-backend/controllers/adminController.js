@@ -155,7 +155,6 @@ exports.getAllOrders = async (req, res) => {
     const orders = await Order.find(query)
       .populate('user', 'firstName lastName email phone')
       .populate('items.product', 'title image price')
-      .populate('shop', 'name ownerEmail')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -185,67 +184,49 @@ exports.getAllOrders = async (req, res) => {
   }
 };
 
-// Get order statistics for admin
+// Get order statistics
 exports.getOrderStats = async (req, res) => {
   try {
-    const totalOrders = await Order.countDocuments();
-    const pendingOrders = await Order.countDocuments({ status: 'pending' });
-    const confirmedOrders = await Order.countDocuments({ status: 'confirmed' });
-    const processingOrders = await Order.countDocuments({ status: 'processing' });
-    const shippedOrders = await Order.countDocuments({ status: 'shipped' });
-    const outForDeliveryOrders = await Order.countDocuments({ status: 'out_for_delivery' });
-    const deliveredOrders = await Order.countDocuments({ status: 'delivered' });
-    const cancelledOrders = await Order.countDocuments({ status: 'cancelled' });
+    console.log("🔍 Admin getOrderStats called");
+    
+    // Get order counts by status
+    const orderCounts = await Order.aggregate([
+      { $group: { _id: "$status", count: { $sum: 1 } } }
+    ]);
 
-    // Calculate revenue
+    // Get total revenue
     const revenueStats = await Order.aggregate([
-      { $match: { status: { $in: ['delivered', 'out_for_delivery'] } } },
-      { 
-        $group: { 
-          _id: null, 
-          totalRevenue: { $sum: "$total" },
-          avgOrderValue: { $avg: "$total" }
-        } 
-      }
+      { $group: { _id: null, totalRevenue: { $sum: "$total" }, totalOrders: { $sum: 1 } } }
     ]);
 
-    // Monthly revenue for current year
-    const currentYear = new Date().getFullYear();
-    const monthlyRevenue = await Order.aggregate([
-      { 
-        $match: { 
-          status: { $in: ['delivered', 'out_for_delivery'] },
-          createdAt: { $gte: new Date(currentYear, 0, 1) }
-        } 
-      },
-      {
-        $group: {
-          _id: { $month: "$createdAt" },
-          revenue: { $sum: "$total" },
-          orderCount: { $sum: 1 }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
+    // Get recent orders
+    const recentOrders = await Order.find()
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate("user", "firstName lastName email")
+      .populate("items.product", "title image price category");
 
-    res.json({
+    console.log("✅ Admin getOrderStats - Orders found:", recentOrders.length);
+
+    const stats = {
       orderCounts: {
-        total: totalOrders,
-        pending: pendingOrders,
-        confirmed: confirmedOrders,
-        processing: processingOrders,
-        shipped: shippedOrders,
-        outForDelivery: outForDeliveryOrders,
-        delivered: deliveredOrders,
-        cancelled: cancelledOrders
+        total: revenueStats[0]?.totalOrders || 0,
+        pending: orderCounts.find(c => c._id === 'pending')?.count || 0,
+        confirmed: orderCounts.find(c => c._id === 'confirmed')?.count || 0,
+        delivered: orderCounts.find(c => c._id === 'delivered')?.count || 0,
+        cancelled: orderCounts.find(c => c._id === 'cancelled')?.count || 0
       },
       revenue: {
         total: revenueStats[0]?.totalRevenue || 0,
-        average: revenueStats[0]?.avgOrderValue || 0
+        average: revenueStats[0]?.totalOrders > 0 ? revenueStats[0].totalRevenue / revenueStats[0].totalOrders : 0
       },
-      monthlyRevenue
-    });
+      recentOrders
+    };
+
+    console.log("✅ Admin getOrderStats - Stats:", stats);
+    res.json(stats);
   } catch (err) {
+    console.error("❌ Admin getOrderStats error:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -278,40 +259,33 @@ exports.settleOrderWithShop = async (req, res) => {
   }
 };
 
-// Get payout summary for admin
+// Get payout summary
 exports.getPayoutSummary = async (req, res) => {
   try {
+    // Get pending payouts to shops
     const pendingPayouts = await Order.aggregate([
       { 
         $match: { 
-          status: { $in: ['delivered', 'out_for_delivery'] },
-          'settlement.paidToShop': false
+          status: { $in: ['delivered'] },
+          'settlement.paidToShop': { $ne: true }
         } 
       },
       {
         $group: {
-          _id: "$shop",
+          _id: "$items.product.shop",
           totalAmount: { $sum: "$total" },
           orderCount: { $sum: 1 }
         }
-      },
-      {
-        $lookup: {
-          from: "shops",
-          localField: "_id",
-          foreignField: "_id",
-          as: "shopDetails"
-        }
-      },
-      { $unwind: "$shopDetails" }
+      }
     ]);
 
-    const totalPendingAmount = pendingPayouts.reduce((sum, item) => sum + item.totalAmount, 0);
+    // Get total pending amount
+    const totalPending = pendingPayouts.reduce((sum, payout) => sum + payout.totalAmount, 0);
 
     res.json({
       pendingPayouts,
-      totalPendingAmount,
-      totalPendingOrders: pendingPayouts.reduce((sum, item) => sum + item.orderCount, 0)
+      totalPending,
+      totalShops: pendingPayouts.length
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

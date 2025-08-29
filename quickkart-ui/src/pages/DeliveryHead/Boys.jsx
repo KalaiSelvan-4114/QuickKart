@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axiosClient from "../../api/axiosClient";
 
 export default function DeliveryHeadBoys() {
@@ -7,6 +7,8 @@ export default function DeliveryHeadBoys() {
   const [error, setError] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingBoy, setEditingBoy] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [showMap, setShowMap] = useState(false);
   const [formData, setFormData] = useState({
     boyId: "",
     name: "",
@@ -101,6 +103,125 @@ export default function DeliveryHeadBoys() {
     }
   };
 
+  const useCurrentLocation = async () => {
+    try {
+      setLocating(true);
+      setError("");
+      if (!('geolocation' in navigator)) {
+        setError("Geolocation not supported in this browser");
+        return;
+      }
+      await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 10000
+        });
+      }).then(async (pos) => {
+        const lat = Number(pos.coords.latitude.toFixed(6));
+        const lng = Number(pos.coords.longitude.toFixed(6));
+        const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+        const data = await resp.json();
+        const address = data?.display_name || "";
+        setFormData(prev => ({
+          ...prev,
+          location: { lat, lng, address }
+        }));
+      });
+    } catch (err) {
+      setError(err.message || "Failed to get current location");
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  const MapPicker = ({ initialLat, initialLng, onPick, onClose }) => {
+    const mapRef = useRef(null);
+    const markerRef = useRef(null);
+
+    useEffect(() => {
+      const addLeaflet = async () => {
+        // Load Leaflet CSS
+        if (!document.getElementById('leaflet-css')) {
+          const link = document.createElement('link');
+          link.id = 'leaflet-css';
+          link.rel = 'stylesheet';
+          link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+          document.head.appendChild(link);
+        }
+        // Load Leaflet JS
+        if (!window.L) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.body.appendChild(script);
+          });
+        }
+        const L = window.L;
+        if (!mapRef.current) return;
+        const lat = initialLat || 20.5937; // India center
+        const lng = initialLng || 78.9629;
+        const map = L.map(mapRef.current).setView([lat, lng], initialLat ? 13 : 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+        let marker = null;
+        const placeMarker = (coords) => {
+          if (marker) marker.remove();
+          marker = L.marker(coords).addTo(map);
+          markerRef.current = marker;
+        };
+        if (initialLat && initialLng) placeMarker([initialLat, initialLng]);
+        map.on('click', async (e) => {
+          placeMarker([e.latlng.lat, e.latlng.lng]);
+        });
+        // Store map instance for cleanup
+        markerRef.current = marker;
+        return () => {
+          map.remove();
+        };
+      };
+      addLeaflet();
+      return () => {};
+    }, [initialLat, initialLng]);
+
+    const confirmPick = async () => {
+      try {
+        const L = window.L;
+        if (!L || !markerRef.current) return onClose();
+        const latlng = markerRef.current.getLatLng();
+        const lat = Number(latlng.lat.toFixed(6));
+        const lng = Number(latlng.lng.toFixed(6));
+        // Reverse geocode
+        const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+        const data = await resp.json();
+        const address = data?.display_name || "";
+        onPick({ lat, lng, address });
+      } catch {
+        onPick(null);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-xl w-[95vw] max-w-3xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <h3 className="text-lg font-semibold">Pick Location on Map</h3>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
+          </div>
+          <div className="w-full h-[60vh]" ref={mapRef} />
+          <div className="flex justify-end gap-2 px-4 py-3 border-t bg-gray-50">
+            <button onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">Cancel</button>
+            <button onClick={confirmPick} className="px-4 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700">Use This Location</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   return (
@@ -122,7 +243,6 @@ export default function DeliveryHeadBoys() {
           </div>
         )}
 
-        {/* Add/Edit Form */}
         {showAddForm && (
           <div className="mb-8 bg-white p-6 rounded-lg shadow-md border border-gray-200">
             <h2 className="text-xl font-semibold mb-4">
@@ -198,15 +318,44 @@ export default function DeliveryHeadBoys() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                  <input
-                    type="text"
-                    name="location.address"
-                    value={formData.location.address}
-                    onChange={handleChange}
-                    className="input-field w-full"
-                    placeholder="Enter full address"
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      name="location.address"
+                      value={formData.location.address}
+                      onChange={handleChange}
+                      className="input-field w-full"
+                      placeholder="Enter full address or use Pick from Map"
+                      required
+                    />
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={useCurrentLocation}
+                      disabled={locating}
+                      className="px-3 py-2 rounded-lg text-sm bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-60"
+                    >
+                      {locating ? 'Getting location…' : '📍 Use Current Location'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowMap(true)}
+                      className="px-3 py-2 rounded-lg text-sm bg-accent-600 text-white hover:bg-accent-700"
+                    >
+                      🗺️ Pick on Map
+                    </button>
+                    {formData.location.lat && formData.location.lng && (
+                      <a
+                        href={`https://www.google.com/maps?q=${formData.location.lat},${formData.location.lng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-2 rounded-lg text-sm bg-gray-100 border hover:bg-gray-200"
+                      >
+                        Open in Google Maps
+                      </a>
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -250,7 +399,20 @@ export default function DeliveryHeadBoys() {
           </div>
         )}
 
-        {/* Delivery Boys List */}
+        {showMap && (
+          <MapPicker
+            initialLat={formData.location.lat || null}
+            initialLng={formData.location.lng || null}
+            onPick={(result) => {
+              setShowMap(false);
+              if (result) {
+                setFormData(prev => ({ ...prev, location: result }));
+              }
+            }}
+            onClose={() => setShowMap(false)}
+          />
+        )}
+
         <div className="bg-white rounded-lg shadow-md border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Current Delivery Boys</h2>

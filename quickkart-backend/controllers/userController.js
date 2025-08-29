@@ -464,7 +464,7 @@ exports.removeFromWishlist = async (req, res) => {
 /** Orders management */
 exports.getOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.user.id }).populate('shop', 'name');
+    const orders = await Order.find({ user: req.user.id });
     res.json(orders);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -515,10 +515,11 @@ exports.createOrder = async (req, res) => {
     };
 
     const order = new Order(orderData);
-    // generate simple delivery code
-    // Generate 6-digit OTP for delivery confirmation
-    order.deliveryOTP = Math.floor(100000 + Math.random() * 900000).toString();
-    order.otpExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours expiry
+    // Generate QR token for delivery confirmation (e.g., 12-char base36)
+    const randomPart = Math.random().toString(36).slice(2, 10);
+    const timePart = Date.now().toString(36).slice(-4);
+    order.qrToken = `${randomPart}${timePart}`;
+    order.qrGeneratedAt = new Date();
     const savedOrder = await order.save();
 
     // Decrement inventory for each item if inventory is tracked

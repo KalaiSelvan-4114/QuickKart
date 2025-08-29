@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
 
 export default function ShopDashboard() {
@@ -7,284 +8,288 @@ export default function ShopDashboard() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [currentTab, setCurrentTab] = useState("overview");
+  const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("🔄 Dashboard component mounted");
     loadDashboardData();
   }, []);
+
+  const testShopAuth = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const role = localStorage.getItem("authRole");
+      console.log("🔍 Debug - Token:", token ? "Present" : "Missing");
+      console.log("🔍 Debug - Role:", role);
+      
+      const res = await axiosClient.get("/shop/debug");
+      console.log("✅ Shop auth test:", res.data);
+      alert(`Shop authenticated! Shop ID: ${res.data.shopId}, Email: ${res.data.shopEmail}`);
+    } catch (err) {
+      console.error("❌ Shop auth test failed:", err);
+      alert("Shop authentication failed: " + (err.response?.data?.error || err.message));
+    }
+  };
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
+      setError("");
+
+      console.log("🔄 Loading shop dashboard data...");
+
+      // Load stats, orders, and products in parallel
       const [statsRes, ordersRes, productsRes] = await Promise.all([
         axiosClient.get("/shop/orders/stats"),
-        axiosClient.get("/shop/orders"),
+        axiosClient.get("/shop/orders?limit=5"),
         axiosClient.get("/shop/products")
       ]);
 
+      console.log("✅ Dashboard data loaded:", {
+        stats: statsRes.data,
+        orders: ordersRes.data,
+        products: productsRes.data
+      });
+
       setStats(statsRes.data);
-      setOrders(ordersRes.data.orders);
-      setProducts(productsRes.data);
+      setOrders(ordersRes.data.orders || []);
+      setProducts(productsRes.data || []);
     } catch (err) {
-      setError("Failed to load dashboard data");
+      console.error("❌ Dashboard loading error:", err);
+      console.error("Error details:", {
+        message: err.message,
+        status: err.response?.status,
+        data: err.response?.data
+      });
+      
+      let errorMessage = "Failed to load dashboard data";
+      if (err.response?.status === 401) {
+        errorMessage = "Authentication failed. Please login again.";
+      } else if (err.response?.status === 404) {
+        errorMessage = "Shop data not found.";
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateOrderStatus = async (orderId, newStatus) => {
-    try {
-      await axiosClient.put(`/shop/orders/${orderId}/status`, { status: newStatus });
-      loadDashboardData();
-    } catch (err) {
-      setError("Failed to update order status");
-    }
+  const handleViewAllOrders = () => {
+    navigate("/shop/orders");
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  const handleManageProducts = () => {
+    navigate("/shop/stock");
+  };
 
+  // Simple loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Simple error state
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Dashboard Error</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <div className="space-y-2">
+            <button
+              onClick={loadDashboardData}
+              className="w-full bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700"
+            >
+              Retry
+            </button>
+            <button
+              onClick={testShopAuth}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            >
+              Test Authentication
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Simple dashboard content
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">🏪 Shop Dashboard</h1>
-
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            {error}
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="mx-auto h-16 w-16 bg-gradient-to-br from-accent-400 to-accent-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+            <span className="text-2xl">🏪</span>
           </div>
-        )}
-
-        {/* Tab Navigation */}
-        <div className="mb-8 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            {[
-              { id: "overview", name: "Overview", icon: "📊" },
-              { id: "orders", name: "Orders & Sales", icon: "📦" },
-              { id: "products", name: "Products", icon: "🛍️" }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setCurrentTab(tab.id)}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  currentTab === tab.id
-                    ? "border-primary-500 text-primary-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                {tab.icon} {tab.name}
-              </button>
-            ))}
-          </nav>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Shop Dashboard</h1>
+          <p className="text-gray-600">Manage your products, orders, and business</p>
         </div>
 
-        {/* Overview Tab */}
-        {currentTab === "overview" && stats && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <span className="text-2xl">📦</span>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Orders</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.orderCounts.total}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <span className="text-2xl">✅</span>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Delivered</p>
-                    <p className="text-2xl font-semibold text-gray-900">{stats.orderCounts.delivered}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                <div className="flex items-center">
-                  <div className="p-2 bg-yellow-100 rounded-lg">
-                    <span className="text-2xl">💰</span>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-                    <p className="text-2xl font-semibold text-gray-900">₹{stats.revenue.total.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <span className="text-2xl">📈</span>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Avg Order Value</p>
-                    <p className="text-2xl font-semibold text-gray-900">₹{Math.round(stats.revenue.average)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                <h3 className="text-lg font-semibold mb-4">Order Status Breakdown</h3>
-                <div className="space-y-3">
-                  {Object.entries(stats.orderCounts).map(([status, count]) => (
-                    <div key={status} className="flex justify-between items-center">
-                      <span className="capitalize text-gray-600">{status.replace(/([A-Z])/g, ' $1')}</span>
-                      <span className="font-semibold">{count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                <h3 className="text-lg font-semibold mb-4">Monthly Revenue</h3>
-                <div className="space-y-2">
-                  {stats.monthlyRevenue.map((month) => (
-                    <div key={month._id} className="flex justify-between items-center">
-                      <span className="text-gray-600">
-                        {new Date(2024, month._id - 1).toLocaleDateString('en-US', { month: 'long' })}
-                      </span>
-                      <span className="font-semibold">₹{month.revenue.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-              <h3 className="text-lg font-semibold mb-4">Pending Payouts</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Total Pending Amount</p>
-                  <p className="text-2xl font-semibold text-gray-900">₹{stats.pendingPayouts.totalAmount.toLocaleString()}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Pending Orders</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stats.pendingPayouts.orderCount}</p>
-                </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center">
+              <span className="text-2xl mr-3">📋</span>
+              <div>
+                <p className="text-sm text-gray-600">Total Orders</p>
+                <p className="text-2xl font-bold">{stats?.orderCounts?.total || 0}</p>
               </div>
             </div>
           </div>
-        )}
-
-        {/* Orders Tab */}
-        {currentTab === "orders" && (
-          <div className="bg-white rounded-lg shadow-md border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Shop Orders</h2>
-            </div>
-            <div className="p-6">
-              {orders.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No orders found</p>
-              ) : (
-                <div className="space-y-4">
-                  {orders.map((order) => (
-                    <div key={order._id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <p className="font-medium text-gray-900">Order #{order._id.slice(-6)}</p>
-                          <p className="text-sm text-gray-600">
-                            {order.user?.firstName} {order.user?.lastName} • {order.user?.phone}
-                          </p>
-                          <p className="text-sm text-gray-600">{order.items?.length || 0} items</p>
-                        </div>
-                        <div className="text-right">
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                            order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {order.status}
-                          </span>
-                          <p className="text-sm font-medium mt-1">₹{order.total}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="text-sm text-gray-600 mb-3">
-                        <p>Order Date: {new Date(order.createdAt).toLocaleDateString()}</p>
-                        {order.settlement?.paidToShop && (
-                          <p className="text-green-600">✅ Settled with Admin</p>
-                        )}
-                      </div>
-
-                      {/* Order Status Update */}
-                      {order.status !== 'delivered' && order.status !== 'cancelled' && (
-                        <div className="flex gap-2">
-                          {order.status === 'pending' && (
-                            <button
-                              onClick={() => updateOrderStatus(order._id, 'confirmed')}
-                              className="btn-primary text-sm px-3 py-1"
-                            >
-                              Confirm Order
-                            </button>
-                          )}
-                          {order.status === 'confirmed' && (
-                            <button
-                              onClick={() => updateOrderStatus(order._id, 'processing')}
-                              className="btn-primary text-sm px-3 py-1"
-                            >
-                              Start Processing
-                            </button>
-                          )}
-                          {order.status === 'processing' && (
-                            <button
-                              onClick={() => updateOrderStatus(order._id, 'shipped')}
-                              className="btn-primary text-sm px-3 py-1"
-                            >
-                              Mark Shipped
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center">
+              <span className="text-2xl mr-3">💰</span>
+              <div>
+                <p className="text-sm text-gray-600">Total Revenue</p>
+                <p className="text-2xl font-bold">₹{stats?.revenue?.total || 0}</p>
+              </div>
             </div>
           </div>
-        )}
-
-        {/* Products Tab */}
-        {currentTab === "products" && (
-          <div className="bg-white rounded-lg shadow-md border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Shop Products</h2>
-            </div>
-            <div className="p-6">
-              {products.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No products found</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {products.map((product) => (
-                    <div key={product._id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="mb-3">
-                        <h3 className="font-medium text-gray-900">{product.title}</h3>
-                        <p className="text-sm text-gray-600">{product.category}</p>
-                        <p className="text-sm text-gray-600">₹{product.price}</p>
-                      </div>
-                      
-                      <div className="text-sm text-gray-600 space-y-1">
-                        {product.sizes && product.sizes.length > 0 && (
-                          <p>Sizes: {product.sizes.join(', ')}</p>
-                        )}
-                        {product.colors && product.colors.length > 0 && (
-                          <p>Colors: {product.colors.join(', ')}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center">
+              <span className="text-2xl mr-3">⏳</span>
+              <div>
+                <p className="text-sm text-gray-600">Pending Orders</p>
+                <p className="text-2xl font-bold">{stats?.orderCounts?.pending || 0}</p>
+              </div>
             </div>
           </div>
-        )}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center">
+              <span className="text-2xl mr-3">📢</span>
+              <div>
+                <p className="text-sm text-gray-600">Notify Delivery</p>
+                <p className="text-2xl font-bold">{stats?.orderCounts?.notify_delivery || 0}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center">
+              <span className="text-2xl mr-3">📦</span>
+              <div>
+                <p className="text-sm text-gray-600">Total Products</p>
+                <p className="text-2xl font-bold">{products.length}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+            <div className="space-y-3">
+              <button
+                onClick={handleManageProducts}
+                className="w-full flex items-center justify-between p-3 bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100 transition-colors"
+              >
+                <span>📦 Manage Products</span>
+                <span>→</span>
+              </button>
+              <button
+                onClick={handleViewAllOrders}
+                className="w-full flex items-center justify-between p-3 bg-accent-50 text-accent-700 rounded-lg hover:bg-accent-100 transition-colors"
+              >
+                <span>📋 View All Orders</span>
+                <span>→</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+            <div className="space-y-3">
+              <div className="flex items-center text-sm text-gray-600">
+                <span className="w-2 h-2 bg-green-400 rounded-full mr-3"></span>
+                <span>Dashboard loaded successfully</span>
+              </div>
+              <div className="flex items-center text-sm text-gray-600">
+                <span className="w-2 h-2 bg-blue-400 rounded-full mr-3"></span>
+                <span>{products.length} products in inventory</span>
+              </div>
+              <div className="flex items-center text-sm text-gray-600">
+                <span className="w-2 h-2 bg-yellow-400 rounded-full mr-3"></span>
+                <span>{stats?.orderCounts?.pending || 0} pending orders</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Orders */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Recent Orders</h3>
+            <button
+              onClick={handleViewAllOrders}
+              className="text-primary-600 hover:text-primary-800 text-sm font-medium"
+            >
+              View All →
+            </button>
+          </div>
+          {orders.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No orders yet</p>
+          ) : (
+            <div className="space-y-4">
+              {orders.slice(0, 5).map((order) => (
+                <div key={order._id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div>
+                    <p className="font-medium">Order #{order._id.slice(-8)}</p>
+                    <p className="text-sm text-gray-600">
+                      {order.user?.firstName} {order.user?.lastName}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">₹{order.total}</p>
+                    <p className="text-sm text-gray-600">{order.status}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Products */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Recent Products</h3>
+            <button
+              onClick={handleManageProducts}
+              className="text-primary-600 hover:text-primary-800 text-sm font-medium"
+            >
+              View All →
+            </button>
+          </div>
+          {products.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No products yet</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {products.slice(0, 6).map((product) => (
+                <div key={product._id} className="border border-gray-200 rounded-lg p-4">
+                  <img 
+                    src={product.image} 
+                    alt={product.title} 
+                    className="w-full h-32 object-cover rounded-lg mb-3"
+                  />
+                  <h4 className="font-medium text-gray-900">{product.title}</h4>
+                  <p className="text-sm text-gray-600">{product.category}</p>
+                  <p className="font-semibold text-primary-600">₹{product.price}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

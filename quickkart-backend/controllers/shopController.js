@@ -94,6 +94,57 @@ exports.getProfile = async (req, res) => {
   }
 };
 
+// Update shop profile
+exports.updateProfile = async (req, res) => {
+  try {
+    const {
+      name,
+      ownerEmail,
+      ownerPhone,
+      address,
+      city,
+      state,
+      pincode,
+      gst,
+      upiVpa,
+      upiName,
+      shopImage,
+      description
+    } = req.body;
+
+    const shop = await Shop.findByIdAndUpdate(
+      req.shop.id,
+      {
+        name,
+        ownerEmail,
+        ownerPhone,
+        address,
+        city,
+        state,
+        pincode,
+        gst,
+        upiVpa,
+        upiName,
+        shopImage,
+        description
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!shop) {
+      return res.status(404).json({ error: "Shop not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      shop
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 // Add product
 exports.addProduct = async (req, res) => {
   try {
@@ -184,21 +235,65 @@ exports.deleteProduct = async (req, res) => {
 // Get shop orders
 exports.getShopOrders = async (req, res) => {
   try {
-    const { status, page = 1, limit = 20 } = req.query;
+    const shopId = req.shop.id;
+    const { page = 1, limit = 10, status } = req.query;
+
+    console.log("🔍 Shop Orders Debug:");
+    console.log("Shop ID:", shopId);
+    console.log("Query params:", { page, limit, status });
+
+    // First, get all products from this shop
+    const shopProducts = await Product.find({ shop: shopId }).select('_id');
+    const shopProductIds = shopProducts.map(p => p._id);
     
-    let query = { shop: req.shop.id };
+    console.log("Shop product IDs:", shopProductIds);
+
+    // Build query to find orders that contain products from this shop
+    const query = {
+      "items.product": { $in: shopProductIds }
+    };
+
     if (status && status !== 'all') {
       query.status = status;
     }
 
+    console.log("Query:", JSON.stringify(query, null, 2));
+
     const skip = (page - 1) * limit;
+    
+    // First, let's check if there are any orders at all
+    const totalOrdersInDB = await Order.countDocuments({});
+    console.log("Total orders in DB:", totalOrdersInDB);
+
+    // Check if there are any orders with products from this shop
+    const ordersWithShopProducts = await Order.countDocuments(query);
+    console.log("Orders with shop products:", ordersWithShopProducts);
+
+    // Let's also check a few sample orders to see their structure
+    const sampleOrders = await Order.find({}).limit(3).populate('items.product');
+    console.log("Sample orders structure:", JSON.stringify(sampleOrders.map(o => ({
+      id: o._id,
+      items: o.items.map(item => ({
+        productId: item.product?._id,
+        productShop: item.product?.shop
+      }))
+    })), null, 2));
     
     const orders = await Order.find(query)
       .populate('user', 'firstName lastName email phone')
-      .populate('items.product', 'title image price')
+      .populate({
+        path: 'items.product',
+        select: 'title image price shop',
+        populate: {
+          path: 'shop',
+          select: 'name'
+        }
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
+
+    console.log("Found orders:", orders.length);
 
     const totalOrders = await Order.countDocuments(query);
     const totalPages = Math.ceil(totalOrders / limit);
@@ -214,98 +309,64 @@ exports.getShopOrders = async (req, res) => {
       }
     });
   } catch (err) {
+    console.error("Error in getShopOrders:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
-// Get shop order statistics
+// Get shop order stats
 exports.getShopOrderStats = async (req, res) => {
   try {
-    const totalOrders = await Order.countDocuments({ shop: req.shop.id });
-    const pendingOrders = await Order.countDocuments({ shop: req.shop.id, status: 'pending' });
-    const confirmedOrders = await Order.countDocuments({ shop: req.shop.id, status: 'confirmed' });
-    const processingOrders = await Order.countDocuments({ shop: req.shop.id, status: 'processing' });
-    const shippedOrders = await Order.countDocuments({ shop: req.shop.id, status: 'shipped' });
-    const outForDeliveryOrders = await Order.countDocuments({ shop: req.shop.id, status: 'out_for_delivery' });
-    const deliveredOrders = await Order.countDocuments({ shop: req.shop.id, status: 'delivered' });
-    const cancelledOrders = await Order.countDocuments({ shop: req.shop.id, status: 'cancelled' });
+    const shopId = req.shop.id;
+    
+    // First, get all products from this shop
+    const shopProducts = await Product.find({ shop: shopId }).select('_id');
+    const shopProductIds = shopProducts.map(p => p._id);
+    
+    // Get order counts by status
+    const orderCounts = await Order.aggregate([
+      { $match: { "items.product": { $in: shopProductIds } } },
+      { $group: { _id: "$status", count: { $sum: 1 } } }
+    ]);
 
-    // Calculate revenue
+    // Get total revenue
     const revenueStats = await Order.aggregate([
-      { 
-        $match: { 
-          shop: req.shop.id,
-          status: { $in: ['delivered', 'out_for_delivery'] } 
-        } 
-      },
-      { 
-        $group: { 
-          _id: null, 
-          totalRevenue: { $sum: "$total" },
-          avgOrderValue: { $avg: "$total" }
-        } 
-      }
+      { $match: { "items.product": { $in: shopProductIds } } },
+      { $group: { _id: null, totalRevenue: { $sum: "$total" }, totalOrders: { $sum: 1 } } }
     ]);
 
-    // Monthly revenue for current year
-    const currentYear = new Date().getFullYear();
-    const monthlyRevenue = await Order.aggregate([
-      { 
-        $match: { 
-          shop: req.shop.id,
-          status: { $in: ['delivered', 'out_for_delivery'] },
-          createdAt: { $gte: new Date(currentYear, 0, 1) }
-        } 
-      },
-      {
-        $group: {
-          _id: { $month: "$createdAt" },
-          revenue: { $sum: "$total" },
-          orderCount: { $sum: 1 }
+    // Get recent orders
+    const recentOrders = await Order.find({ "items.product": { $in: shopProductIds } })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate({
+        path: 'items.product',
+        select: 'title image price shop',
+        populate: {
+          path: 'shop',
+          select: 'name'
         }
-      },
-      { $sort: { _id: 1 } }
-    ]);
+      })
+      .populate('user', 'firstName lastName email phone');
 
-    // Pending payouts
-    const pendingPayouts = await Order.aggregate([
-      { 
-        $match: { 
-          shop: req.shop.id,
-          status: { $in: ['delivered', 'out_for_delivery'] },
-          'settlement.paidToShop': false
-        } 
-      },
-      {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: "$total" },
-          orderCount: { $sum: 1 }
-        }
-      }
-    ]);
-
-    res.json({
+    const stats = {
       orderCounts: {
-        total: totalOrders,
-        pending: pendingOrders,
-        confirmed: confirmedOrders,
-        processing: processingOrders,
-        shipped: shippedOrders,
-        outForDelivery: outForDeliveryOrders,
-        delivered: deliveredOrders,
-        cancelled: cancelledOrders
+        total: revenueStats[0]?.totalOrders || 0,
+        pending: orderCounts.find(c => c._id === 'pending')?.count || 0,
+        confirmed: orderCounts.find(c => c._id === 'confirmed')?.count || 0,
+        notify_delivery: orderCounts.find(c => c._id === 'notify_delivery')?.count || 0,
+        out_for_delivery: orderCounts.find(c => c._id === 'out_for_delivery')?.count || 0,
+        delivered: orderCounts.find(c => c._id === 'delivered')?.count || 0,
+        cancelled: orderCounts.find(c => c._id === 'cancelled')?.count || 0
       },
       revenue: {
         total: revenueStats[0]?.totalRevenue || 0,
-        average: revenueStats[0]?.avgOrderValue || 0
+        average: revenueStats[0]?.totalOrders > 0 ? revenueStats[0].totalRevenue / revenueStats[0].totalOrders : 0
       },
-      monthlyRevenue,
-      pendingPayouts: {
-        totalAmount: pendingPayouts[0]?.totalAmount || 0,
-        orderCount: pendingPayouts[0]?.orderCount || 0
-      }
-    });
+      recentOrders
+    };
+
+    res.json(stats);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -316,16 +377,25 @@ exports.updateOrderStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { status } = req.body;
+    const shopId = req.shop.id;
 
-    const order = await Order.findOneAndUpdate(
-      { _id: orderId, shop: req.shop.id },
-      { status },
-      { new: true, runValidators: true }
-    );
+    // First, get all products from this shop
+    const shopProducts = await Product.find({ shop: shopId }).select('_id');
+    const shopProductIds = shopProducts.map(p => p._id);
+
+    // Find order that contains products from this shop
+    const order = await Order.findOne({
+      _id: orderId,
+      "items.product": { $in: shopProductIds }
+    });
 
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
     }
+
+    // Update the order status
+    order.status = status;
+    await order.save();
 
     res.json({ 
       success: true, 

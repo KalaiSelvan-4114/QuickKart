@@ -100,6 +100,7 @@ export default function Navbar() {
                 {userType === "shop" && (
                   <>
                     <Link to="/shop/dashboard" className={`nav-link ${isActiveLink('/shop/dashboard') ? 'nav-link-active' : ''}`}>📊 Dashboard</Link>
+                    <Link to="/shop/profile" className={`nav-link ${isActiveLink('/shop/profile') ? 'nav-link-active' : ''}`}>👤 Profile</Link>
                     <Link to="/shop/stock" className={`nav-link ${isActiveLink('/shop/stock') ? 'nav-link-active' : ''}`}>📦 Manage Stock</Link>
                     <Link to="/shop/orders" className={`nav-link ${isActiveLink('/shop/orders') ? 'nav-link-active' : ''}`}>📋 Orders</Link>
                   </>
@@ -164,6 +165,7 @@ export default function Navbar() {
                   {userType === "shop" && (
                     <>
                       <Link to="/shop/dashboard" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/shop/dashboard') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>📊 Dashboard</Link>
+                      <Link to="/shop/profile" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/shop/profile') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>👤 Profile</Link>
                       <Link to="/shop/stock" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/shop/stock') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>📦 Manage Stock</Link>
                       <Link to="/shop/orders" className={`block px-3 py-2 text-base font-medium rounded-lg ${isActiveLink('/shop/orders') ? 'text-primary-600 bg-primary-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'}`} onClick={() => setShowMobileMenu(false)}>📋 Orders</Link>
                     </>

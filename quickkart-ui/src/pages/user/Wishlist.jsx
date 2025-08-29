@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
 import { useCart } from "../../contexts/CartContext";
+import PageLayout from "../../components/PageLayout";
+import LoadingSpinner from "../../components/LoadingSpinner";
+import NotificationToast from "../../components/NotificationToast";
+import ProductCard from "../../components/ProductCard";
 
 export default function Wishlist() {
   const { addToCart } = useCart();
@@ -31,203 +35,114 @@ export default function Wishlist() {
     try {
       await axiosClient.delete(`/user/wishlist/${productId}`);
       setWishlist(prev => prev.filter(item => item._id !== productId));
+      setNotification({ show: true, message: "Removed from wishlist", type: "success" });
     } catch (err) {
-      setError("Failed to remove from wishlist");
+      setNotification({ show: true, message: "Failed to remove from wishlist", type: "error" });
     }
   };
 
-  const handleAddToCart = async (item) => {
+  const handleAddToCart = async (productId) => {
     try {
-      setAddingToCart(prev => ({ ...prev, [item._id]: true }));
-      const result = await addToCart(item._id, 1, null, null, item);
+      setAddingToCart(prev => ({ ...prev, [productId]: true }));
+      const item = wishlist.find(w => w._id === productId);
+      const result = await addToCart(productId, 1, null, null, item);
+      
       if (result.success) {
-        // Show success notification
         setError(""); // Clear any previous errors
         setNotification({ show: true, message: result.message, type: "success" });
-        setTimeout(() => setNotification({ show: false, message: "", type: "" }), 3000);
       } else {
         setError(result.message || "Failed to add to cart");
         setNotification({ show: true, message: result.message, type: "error" });
-        setTimeout(() => setNotification({ show: false, message: "", type: "" }), 3000);
       }
     } catch (err) {
       setError("Failed to add to cart");
       setNotification({ show: true, message: "Failed to add to cart", type: "error" });
-      setTimeout(() => setNotification({ show: false, message: "", type: "" }), 3000);
     } finally {
-      setAddingToCart(prev => ({ ...prev, [item._id]: false }));
+      setAddingToCart(prev => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  const handleBuyNow = async (productId) => {
+    try {
+      setAddingToCart(prev => ({ ...prev, [productId]: true }));
+      const item = wishlist.find(w => w._id === productId);
+      const result = await addToCart(productId, 1, null, null, item);
+      
+      if (result.success) {
+        window.location.href = '/user/checkout';
+      } else {
+        setNotification({ show: true, message: result.message, type: "error" });
+      }
+    } catch (err) {
+      setNotification({ show: true, message: "Failed to proceed to checkout", type: "error" });
+    } finally {
+      setAddingToCart(prev => ({ ...prev, [productId]: false }));
     }
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading wishlist...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Loading wishlist..." />;
   }
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50"></div>
-      <div className="absolute top-20 left-10 w-72 h-72 bg-primary-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-bounce-gentle"></div>
-      <div className="absolute bottom-20 right-10 w-72 h-72 bg-accent-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-bounce-gentle" style={{ animationDelay: '1s' }}></div>
-      
-      <div className="relative z-10 max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <div className="mx-auto h-20 w-20 bg-gradient-to-br from-accent-400 to-accent-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-            <span className="text-3xl">❤️</span>
+    <PageLayout
+      title="Your Wishlist"
+      subtitle={`${wishlist.length} items saved for later`}
+      icon="❤️"
+      iconBgColor="from-accent-400 to-accent-600"
+    >
+      {/* Notification Toast */}
+      <NotificationToast
+        notification={notification}
+        onClose={() => setNotification({ show: false, message: "", type: "" })}
+      />
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6">
+          <div className="flex items-center">
+            <span className="mr-2">❌</span>
+            {error}
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4 font-display">
-            Your Wishlist
-          </h1>
-          <p className="text-xl text-gray-600">
-            {wishlist.length} items saved for later
-          </p>
         </div>
+      )}
 
-        {/* Notification Display */}
-        {notification.show && (
-          <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-2xl shadow-2xl transition-all duration-500 transform ${
-            notification.type === "success" 
-              ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white" 
-              : "bg-gradient-to-r from-red-500 to-pink-600 text-white"
-          }`}>
-            <div className="flex items-center space-x-3">
-              <span className="text-xl">
-                {notification.type === "success" ? "✅" : "❌"}
-              </span>
-              <span className="font-medium">{notification.message}</span>
-            </div>
+      {/* Empty State */}
+      {wishlist.length === 0 && (
+        <div className="text-center py-12">
+          <div className="mx-auto h-24 w-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+            <span className="text-4xl">💔</span>
           </div>
-        )}
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Your wishlist is empty</h3>
+          <p className="text-gray-600 mb-6">Start adding items you love to your wishlist!</p>
+          <Link
+            to="/user/shops"
+            className="inline-flex items-center px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            Browse Shops
+          </Link>
+        </div>
+      )}
 
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6">
-            <div className="flex items-center">
-              <span className="mr-2">⚠️</span>
-              {error}
-            </div>
-          </div>
-        )}
-
-        {wishlist.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">❤️</div>
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">Your wishlist is empty</h3>
-            <p className="text-gray-600 mb-6">Start adding products you love</p>
-            <Link to="/user/home" className="btn-primary">
-              Start Shopping
-            </Link>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {wishlist.map((item) => (
-              <div key={item._id} className="card hover:scale-105 transition-transform duration-300">
-                <div className="aspect-square bg-gray-200 rounded-xl mb-4 overflow-hidden relative">
-                  {item.image ? (
-                    <img 
-                      src={item.image} 
-                      alt={item.title} 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-4xl">👕</span>
-                    </div>
-                  )}
-                  
-                  {/* Remove from wishlist button */}
-                  <button
-                    onClick={() => removeFromWishlist(item._id)}
-                    className="absolute top-2 right-2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center text-red-500 hover:text-red-700 transition-colors"
-                    title="Remove from wishlist"
-                  >
-                    ✕
-                  </button>
-                </div>
-                
-                <div className="space-y-3">
-                  <h3 className="font-semibold text-gray-800 line-clamp-2">
-                    {item.title}
-                  </h3>
-                  
-                  <div className="flex flex-wrap gap-1">
-                    {item.category && (
-                      <span className="bg-primary-100 text-primary-800 px-2 py-1 rounded-full text-xs">
-                        {item.category}
-                      </span>
-                    )}
-                    {item.gender && (
-                      <span className="bg-accent-100 text-accent-800 px-2 py-1 rounded-full text-xs">
-                        {item.gender}
-                      </span>
-                    )}
-                    {item.ageCategory && (
-                      <span className="bg-secondary-100 text-secondary-800 px-2 py-1 rounded-full text-xs">
-                        {item.ageCategory}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <p className="text-gray-600 text-sm">
-                    Color: {item.color}
-                  </p>
-                  <p className="text-gray-600 text-sm">
-                    Sizes: {item.sizes?.join(', ')}
-                  </p>
-                  
-                  <p className="text-primary-600 font-bold text-lg">
-                    ₹{item.price}
-                  </p>
-                  
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleAddToCart(item)}
-                      disabled={addingToCart[item._id]}
-                      className="btn-primary flex-1 text-sm py-2 flex items-center justify-center"
-                    >
-                      {addingToCart[item._id] ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                          Adding...
-                        </>
-                      ) : (
-                        'Add to Cart'
-                      )}
-                    </button>
-                    <Link
-                      to={`/user/shop/${item.shopId}`}
-                      className="btn-secondary text-sm py-2 px-3"
-                    >
-                      View Shop
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Quick Actions */}
-        {wishlist.length > 0 && (
-          <div className="mt-12 text-center">
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/user/home" className="btn-secondary">
-                Continue Shopping
-              </Link>
-              <Link to="/user/cart" className="btn-primary">
-                View Cart
-              </Link>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+      {/* Wishlist Grid */}
+      {wishlist.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {wishlist.map((item) => (
+            <ProductCard
+              key={item._id}
+              product={item}
+              onAddToCart={handleAddToCart}
+              onBuyNow={handleBuyNow}
+              onRemoveFromWishlist={removeFromWishlist}
+              addingToCart={addingToCart}
+              buyingNow={addingToCart} // Reuse addingToCart state for buy now
+              showShopInfo={true}
+              showActions={true}
+              variant="default"
+            />
+          ))}
+        </div>
+      )}
+    </PageLayout>
   );
 }
