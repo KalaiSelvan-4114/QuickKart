@@ -8,13 +8,19 @@ export default function QrScanner({ onScan, onError, fps = 10 }) {
     let isMounted = true;
     (async () => {
       try {
-        const { Html5Qrcode } = await import("html5-qrcode");
+        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
         if (!isMounted || !divRef.current) return;
         const elementId = `qr-reader-${Math.random().toString(36).slice(2)}`;
         divRef.current.id = elementId;
         const html5QrCode = new Html5Qrcode(elementId);
         scannerRef.current = html5QrCode;
-        const config = { fps, qrbox: { width: 250, height: 250 } };
+        const config = { 
+          fps, 
+          qrbox: { width: 280, height: 280 }, 
+          aspectRatio: 1.0, 
+          disableFlip: true,
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+        };
         const success = (text) => {
           onScan && onScan(text);
           // Stop after first successful scan
@@ -23,9 +29,18 @@ export default function QrScanner({ onScan, onError, fps = 10 }) {
         const failure = (err) => {
           onError && onError(err?.message || String(err));
         };
-        const devices = await Html5Qrcode.getCameras();
-        const backCam = devices.find(d => /back|rear|environment/i.test(d.label));
-        await html5QrCode.start({ deviceId: { exact: (backCam || devices[0])?.id } }, config, success, failure);
+        try {
+          const devices = await Html5Qrcode.getCameras();
+          if (devices && devices.length > 0) {
+            const backCam = devices.find(d => /back|rear|environment/i.test(d.label));
+            await html5QrCode.start({ deviceId: { exact: (backCam || devices[0])?.id } }, config, success, failure);
+            return;
+          }
+        } catch (_) {
+          // ignore and fallback to facingMode
+        }
+        // Fallback: try environment facing camera (works on Safari/iOS)
+        await html5QrCode.start({ facingMode: { ideal: "environment" } }, config, success, failure);
       } catch (e) {
         onError && onError(e?.message || String(e));
       }
