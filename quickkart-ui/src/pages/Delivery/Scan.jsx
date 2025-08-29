@@ -30,6 +30,28 @@ export default function DeliveryScan() {
     }
   };
 
+  const handleScan = (text) => {
+    // Accept plain token, JSON, or URL formats
+    try {
+      // JSON: { orderId, qrToken }
+      const obj = JSON.parse(text);
+      if (obj && (obj.qrToken || obj.token)) setQrToken(obj.qrToken || obj.token);
+      if (obj && obj.orderId) setOrderId(obj.orderId);
+      return;
+    } catch (_) {}
+    try {
+      // URL with query params ?orderId=...&token=...
+      const u = new URL(text);
+      const token = u.searchParams.get('qrToken') || u.searchParams.get('token');
+      const oid = u.searchParams.get('orderId') || u.searchParams.get('order');
+      if (token) setQrToken(token);
+      if (oid) setOrderId(oid);
+      if (token || oid) return;
+    } catch (_) {}
+    // Fallback: treat as raw token
+    setQrToken(text);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-12 px-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
@@ -42,7 +64,7 @@ export default function DeliveryScan() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Order ID</label>
-            <input value={orderId} onChange={e=>setOrderId(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="Paste Order ObjectId" required />
+            <input value={orderId} onChange={e=>setOrderId(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="Enter Order ID (24-char)" required />
           </div>
           <div>
             <button type="button" className="w-full btn-secondary py-2" onClick={()=>setShowScanner(true)}>Scan QR</button>
@@ -59,7 +81,7 @@ export default function DeliveryScan() {
                 <h2 className="font-semibold">Scan QR</h2>
                 <button className="text-sm text-gray-600" onClick={()=>setShowScanner(false)}>Close</button>
               </div>
-              <QrScanner onScan={(text)=>{ setQrToken(text); setShowScanner(false); }} onError={()=>{}} />
+              <QrScanner onScan={(text)=>{ handleScan(text); setShowScanner(false); }} onError={()=>{}} />
             </div>
           </div>
         )}
