@@ -1,6 +1,9 @@
 const Product = require("../models/Product");
 const User = require("../models/User");
 
+// Add timeout handling for database queries
+const QUERY_TIMEOUT = 25000; // 25 seconds
+
 function getDistance(lat1, lon1, lat2, lon2) {
   const toRad = (v) => (v * Math.PI) / 180;
   const R = 6371; // km
@@ -22,10 +25,14 @@ const skinToneColors = {
 };
 
 exports.getRecommendations = async (req, res) => {
+  // Set response timeout
+  req.setTimeout(QUERY_TIMEOUT);
+  res.setTimeout(QUERY_TIMEOUT);
+
   try {
     console.log("🎯 AI Stylist request received:", req.body);
     
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).maxTimeMS(5000);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -65,7 +72,7 @@ exports.getRecommendations = async (req, res) => {
 
     // Handle style preferences
     if (style && style !== "casual") {
-      filter.style = { $regex: style, $options: 'i' };
+      andClauses.push({ styleFit: { $regex: style, $options: 'i' } });
     }
 
     // Handle price range
@@ -111,7 +118,11 @@ exports.getRecommendations = async (req, res) => {
     console.log("🔍 Final filter (pre-distance):", filter);
 
     // Include shop to ensure only approved shops if attached
-    const products = await Product.find(filter).populate({ path: 'shop', select: 'approved' });
+    // Add query timeout and limit results for performance
+    const products = await Product.find(filter)
+      .populate({ path: 'shop', select: 'approved' })
+      .maxTimeMS(QUERY_TIMEOUT - 5000) // Leave 5 seconds for processing
+      .limit(1000); // Limit results to prevent memory issues
 
     // Exclude products from unapproved shops
     const approvedOnly = products.filter(p => !(p.shop && p.shop.approved === false));
@@ -141,6 +152,12 @@ exports.getRecommendations = async (req, res) => {
     res.json(withDistance);
   } catch (err) {
     console.error("❌ AI Stylist error:", err);
+    
+    // Handle timeout errors specifically
+    if (err.name === 'MongoError' && err.code === 50) {
+      return res.status(408).json({ error: "Request timeout - please try again" });
+    }
+    
     res.status(500).json({ error: err.message });
   }
 };

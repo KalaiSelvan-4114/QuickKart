@@ -11,6 +11,15 @@ export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
+  // If already authenticated, redirect to admin page on visiting login
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("authRole");
+    if (token && role === 'admin') {
+      navigate("/admin/pending", { replace: true });
+    }
+  }, [navigate]);
+
   const login = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -19,6 +28,7 @@ export default function AdminLogin() {
     try {
       const res = await axiosClient.post("/auth/admin/login", { email, password });
       localStorage.setItem("token", res.data.token);
+      localStorage.setItem("authRole", "admin");
       navigate("/admin/pending");
     } catch (err) {
       setError(err.response?.data?.error || "Login failed. Please try again.");

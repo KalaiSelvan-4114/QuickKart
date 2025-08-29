@@ -43,6 +43,11 @@ app.use("/delivery", deliveryRoutes);
 app.use("/delivery-head/auth", deliveryHeadAuthRoutes);
 app.use("/delivery-head", deliveryHeadRoutes);
 
+// Health check / root route for Render
+app.get("/", (req, res) => {
+  res.json({ status: "ok", service: "quickkart-backend" });
+});
+
 app.listen(process.env.PORT, () => {
   console.log(`🚀 Server running on port ${process.env.PORT}`);
 });

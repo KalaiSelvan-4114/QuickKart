@@ -31,21 +31,16 @@ Create a `.env` file in the `quickkart-backend` directory:
 
 ```env
 # Firebase Configuration
-FIREBASE_API_KEY="AIzaSyA0U--lUCnTHm3YysulbMp7fjQ92EYwHc8"
-FIREBASE_AUTH_DOMAIN="skin-797ea.firebaseapp.com"
-FIREBASE_PROJECT_ID=s"skin-797ea"
-FIREBASE_STORAGE_BUCKET="skin-797ea.appspot.com"
-FIREBASE_MESSAGING_SENDER_ID="144004712892"
-FIREBASE_APP_ID="1:144004712892:web:f15f4c9a7ca3ee287e83b9"
 
-apiKey: "AIzaSyA0U--lUCnTHm3YysulbMp7fjQ92EYwHc8",
-  authDomain: "skin-797ea.firebaseapp.com",
-  databaseURL: "https://skin-797ea-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "skin-797ea",
-  storageBucket: "skin-797ea.appspot.com",
-  messagingSenderId: "144004712892",
-  appId: "1:144004712892:web:f15f4c9a7ca3ee287e83b9",
-  measurementId: "G-6567QEGZTS"
+
+apiKey: "------------------------",
+  authDomain: "-----------",
+  databaseURL: "------------",
+  projectId: "-----------",
+  storageBucket: "--------------",
+  messagingSenderId: "------------",
+  appId: "-----------------",
+  measurementId: "----------"
 
 # MongoDB Configuration
 MONGO_URI=mongodb://localhost:27017/quickkart

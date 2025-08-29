@@ -459,7 +459,7 @@ export default function Cart() {
                         {index + 1}
                       </div>
                       
-                      <div className="flex gap-6">
+                      <div className="flex flex-col md:flex-row gap-6">
                         {/* Enhanced Image */}
                         <div className="relative w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg group-hover:shadow-xl transition-shadow duration-300">
                           {item.image ? (
@@ -496,9 +496,9 @@ export default function Cart() {
                                 {item.color}
                               </span>
                             )}
-                            {item.sizes && item.sizes.length > 0 && (
+                            {(item.selectedSize || (item.sizes && item.sizes.length > 0)) && (
                               <span className="bg-gradient-to-r from-secondary-100 to-secondary-200 text-secondary-800 px-3 py-1 rounded-full text-sm font-medium border border-secondary-200">
-                                Size: {item.sizes[0]}
+                                Size: {item.selectedSize || item.sizes[0]}
                               </span>
                             )}
                           </div>

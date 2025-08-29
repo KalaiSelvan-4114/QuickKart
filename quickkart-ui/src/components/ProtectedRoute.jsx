@@ -15,8 +15,14 @@ export default function ProtectedRoute({ children, userType = "user" }) {
     }
     
     if (token) {
-      // You can add JWT token validation here if needed
+      // Optionally validate JWT structure quickly (no decode to avoid env)
       setIsAuthenticated(true);
+      // Persist role if missing
+      const storedRole = localStorage.getItem("authRole");
+      if (!storedRole) {
+        // Infer from route path
+        if (userType) localStorage.setItem("authRole", userType);
+      }
     } else {
       setIsAuthenticated(false);
     }
@@ -43,6 +49,14 @@ export default function ProtectedRoute({ children, userType = "user" }) {
     const loginPath = `/${userType}/login`;
     return <Navigate to={loginPath} replace />;
   }
+
+  // Persist last successful route for seamless revisit redirects
+  try {
+    const path = window.location.pathname;
+    if (path && typeof path === 'string') {
+      localStorage.setItem('lastRoute', path);
+    }
+  } catch {}
 
   return children;
 }

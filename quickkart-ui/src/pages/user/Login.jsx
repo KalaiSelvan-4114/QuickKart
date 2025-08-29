@@ -22,6 +22,14 @@ export default function UserLogin() {
     }
   }, [location, navigate]);
 
+  // If already authenticated, redirect to user home on visiting login page
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      navigate("/user/home", { replace: true });
+    }
+  }, [navigate]);
+
   const login = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -31,6 +39,7 @@ export default function UserLogin() {
     try {
       const res = await axiosClient.post("/auth/user/login", { email, password });
       localStorage.setItem("token", res.data.token);
+      localStorage.setItem("authRole", "user");
       navigate("/user/home");
     } catch (err) {
       setError(err.response?.data?.error || "Login failed. Please try again.");
