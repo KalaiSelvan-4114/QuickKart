@@ -14,14 +14,16 @@ export default function StockManage() {
     description: "",
     price: "",
     category: "",
-    color: "",
+    colors: [], // Changed from single color to array of colors
     sizes: [],
     gender: "",
     ageCategory: "",
     styleFit: "",
     productType: "clothing",
     footwearCategory: "",
-    image: null
+    image: null,
+    images: [], // New field for multiple images
+    inventory: [] // New field for size and color specific inventory
   });
 
   useEffect(() => {
@@ -57,7 +59,13 @@ export default function StockManage() {
   const handleChange = e => {
     const { name, value, files, type } = e.target;
     if (files) {
-      setForm(prev => ({ ...prev, image: files[0] }));
+      if (name === 'image') {
+        setForm(prev => ({ ...prev, image: files[0] }));
+      } else if (name === 'images') {
+        // Handle multiple image files
+        const fileArray = Array.from(files);
+        setForm(prev => ({ ...prev, images: [...prev.images, ...fileArray] }));
+      }
     } else if (type === 'checkbox') {
       const { checked } = e.target;
       if (name === 'sizes') {
@@ -71,6 +79,116 @@ export default function StockManage() {
     } else {
       setForm(prev => ({ ...prev, [name]: value }));
     }
+  };
+
+  const removeImage = (index) => {
+    setForm(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addImageColor = (index, color) => {
+    setForm(prev => ({
+      ...prev,
+      images: prev.images.map((img, i) => 
+        i === index ? { ...img, color } : img
+      )
+    }));
+  };
+
+  // Add a new color to the colors array
+  const addColor = () => {
+    setForm(prev => ({
+      ...prev,
+      colors: [...prev.colors, ""]
+    }));
+  };
+
+  // Add a new color with an image
+  const addColorWithImage = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        setForm(prev => ({
+          ...prev,
+          colors: [...prev.colors, ""],
+          images: [...prev.images, file]
+        }));
+      }
+    };
+    input.click();
+  };
+
+  // Update a specific color in the colors array
+  const updateColor = (index, value) => {
+    setForm(prev => ({
+      ...prev,
+      colors: prev.colors.map((color, i) => i === index ? value : color),
+      // Automatically link the image to the color
+      images: prev.images.map((img, i) => 
+        i === index ? { ...img, color: value } : img
+      )
+    }));
+  };
+
+  // Remove a color from the colors array
+  const removeColor = (index) => {
+    setForm(prev => ({
+      ...prev,
+      colors: prev.colors.filter((_, i) => i !== index),
+      // Also remove the corresponding image if it exists
+      images: prev.images.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Assign an image to a specific color
+  const assignImageToColor = (colorIndex, imageIndex) => {
+    const selectedColor = form.colors[colorIndex];
+    if (!selectedColor) return;
+
+    setForm(prev => ({
+      ...prev,
+      images: prev.images.map((img, i) => 
+        i === imageIndex ? { ...img, color: selectedColor } : img
+      )
+    }));
+  };
+
+  // Generate inventory combinations for all sizes and colors
+  const generateInventory = () => {
+    const colors = [...form.colors.filter(Boolean), ...form.images.map(img => img.color).filter(Boolean)];
+    const uniqueColors = [...new Set(colors)];
+    
+    const inventory = [];
+    form.sizes.forEach(size => {
+      uniqueColors.forEach(color => {
+        if (color) {
+          inventory.push({
+            size,
+            color,
+            quantity: 0
+          });
+        }
+      });
+    });
+    
+    setForm(prev => ({ ...prev, inventory }));
+  };
+
+  // Update inventory quantity
+  const updateInventoryQuantity = (size, color, quantity) => {
+    setForm(prev => ({
+      ...prev,
+      inventory: prev.inventory.map(item => 
+        item.size === size && item.color === color 
+          ? { ...item, quantity: parseInt(quantity) || 0 }
+          : item
+      )
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -96,33 +214,72 @@ export default function StockManage() {
       setUploading(true);
       setError(""); // Clear any previous errors
 
-      // 1) Upload image to Firebase if a local File object is present
+      // 1) Upload images to Firebase
       let imageUrl = editingStock ? editingStock.image : undefined;
+      let uploadedImages = [];
+
+      // Upload main image if provided
       if (form.image instanceof File) {
         try {
           imageUrl = await uploadImageToFirebase(form.image, "products");
         } catch (uploadErr) {
-          setError("Failed to upload image. Please try again.");
+          setError("Failed to upload main image. Please try again.");
           setUploading(false);
           return;
         }
       }
 
-      // 2) Prepare payload
-      const payload = {
-        title: form.title.trim(),
-        description: form.description.trim(),
-        price: parseFloat(form.price),
-        category: form.productType === "clothing" ? form.category : undefined,
-        footwearCategory: form.productType === "footwear" ? form.footwearCategory : undefined,
-        color: form.color.trim(),
-        sizes: form.sizes,
-        gender: form.gender,
-        ageCategory: form.ageCategory,
-        styleFit: form.styleFit,
-        productType: form.productType,
-        image: imageUrl
-      };
+             // Upload multiple images for color variants
+       if (form.images.length > 0) {
+         try {
+           const uploadPromises = form.images.map(async (file, index) => {
+             const url = await uploadImageToFirebase(file, "products");
+             return {
+               url,
+               color: file.color || form.colors[index] || form.color,
+               isPrimary: index === 0
+             };
+           });
+           
+           uploadedImages = await Promise.all(uploadPromises);
+           
+           // Set the first image as the main image if no main image was uploaded
+           if (!imageUrl && uploadedImages.length > 0) {
+             imageUrl = uploadedImages[0].url;
+           }
+         } catch (uploadErr) {
+           setError("Failed to upload one or more images. Please try again.");
+           setUploading(false);
+           return;
+         }
+       }
+
+                           // 2) Prepare payload
+        const payload = {
+          title: form.title.trim(),
+          description: form.description.trim(),
+          price: parseFloat(form.price),
+          category: form.productType === "clothing" ? form.category : undefined,
+          footwearCategory: form.productType === "footwear" ? form.footwearCategory : undefined,
+          color: form.colors[0] || "", // Use first color as primary color for backward compatibility
+          colors: form.colors.filter(Boolean), // Add colors array
+          sizes: form.sizes,
+          gender: form.gender,
+          ageCategory: form.ageCategory,
+          styleFit: form.styleFit,
+          productType: form.productType,
+          image: imageUrl
+        };
+
+      // Add multiple images if uploaded
+      if (uploadedImages.length > 0) {
+        payload.images = uploadedImages;
+      }
+
+      // Add inventory if available
+      if (form.inventory.length > 0) {
+        payload.inventory = form.inventory;
+      }
 
       // 3) Send request to backend
       let response;
@@ -174,14 +331,16 @@ export default function StockManage() {
         description: "",
         price: "",
         category: "",
-        color: "",
+        colors: [], // Start with no colors
         sizes: [],
         gender: "",
         ageCategory: "",
         styleFit: "",
         productType: "clothing",
         footwearCategory: "",
-        image: null
+        image: null,
+        images: [],
+        inventory: []
     });
   };
 
@@ -192,14 +351,16 @@ export default function StockManage() {
       description: stock.description || "",
       price: stock.price || "",
       category: stock.category || "",
-      color: stock.color || "",
+      colors: stock.colors || [stock.color || ""], // Use colors array or fallback to single color
       sizes: stock.sizes || [],
       gender: stock.gender || "",
       ageCategory: stock.ageCategory || "",
       styleFit: stock.styleFit || "",
       productType: stock.productType || "clothing",
       footwearCategory: stock.footwearCategory || "",
-      image: null
+      image: null,
+      images: stock.images || [],
+      inventory: stock.inventory || []
     });
     setShowForm(true);
   };
@@ -246,6 +407,15 @@ export default function StockManage() {
   const footwearCategories = [
     "Sneakers", "Loafers", "Flats", "Heels", "Formal shoes", "Sports shoes",
     "Mojari", "Sandals", "Boots", "Flip-flops", "Party shoes", "School shoes"
+  ];
+
+  // Predefined color list (merged from AI Stylist suggestions)
+  const predefinedColors = [
+    "Black","White","Grey","Navy","Red","Blue","Green","Yellow","Orange","Pink",
+    "Purple","Brown","Beige","Maroon","Olive","Mustard","Coral","Teal","Tan",
+    "Burgundy","Charcoal","Soft Pastels","Gold","Turquoise","Cobalt","Hot Pink",
+    "Bright Yellow","Bright Green","Royal Blue","Emerald","Emerald Green","Lavender",
+    "Light Green","Peach","Cream"
   ];
 
   return (
@@ -295,19 +465,27 @@ export default function StockManage() {
           </div>
         )}
 
-        {/* Add New Product Button */}
-        <div className="mb-8 text-center">
-          <button
-            onClick={() => {
-              setShowForm(true);
-              setEditingStock(null);
-              resetForm();
-            }}
-            className="btn-primary px-8 py-3 text-lg"
-          >
-            + Add New Product
-          </button>
-        </div>
+                 {/* Add New Product Button */}
+         <div className="mb-8 text-center">
+           <button
+             onClick={() => {
+               setShowForm(true);
+               setEditingStock(null);
+               resetForm();
+               // Automatically add first color when opening form
+               setTimeout(() => {
+                 setForm(prev => ({
+                   ...prev,
+                   colors: [""],
+                   images: []
+                 }));
+               }, 100);
+             }}
+             className="btn-primary px-8 py-3 text-lg"
+           >
+             + Add New Product
+           </button>
+         </div>
 
         {/* Product Form */}
         {showForm && (
@@ -405,44 +583,120 @@ export default function StockManage() {
                 </div>
               </div>
 
-              {/* Color and Style */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Color *
-                  </label>
-                  <input
-                    type="text"
-                    name="color"
-                    value={form.color}
-                    onChange={handleChange}
-                    required
-                    className="input-field"
-                    placeholder="Enter color"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Style Fit
-                  </label>
-                  <select
-                    name="styleFit"
-                    value={form.styleFit}
-                    onChange={handleChange}
-                    className="input-field"
-                  >
-                    <option value="">Select Style</option>
-                    <option value="casual">Casual</option>
-                    <option value="formal">Formal</option>
-                    <option value="party">Party</option>
-                    <option value="ethnic">Ethnic</option>
-                    <option value="sports">Sports</option>
-                    <option value="grand">Grand</option>
-                  </select>
-                </div>
-              </div>
+                                                           {/* Colors and Style */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Colors with Images *
+                    </label>
+                    
+                    {/* Predefined Colors Dropdown for quick selection */}
+                    <div className="mb-4 flex gap-2 items-center">
+                      <select
+                        className="input-field"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val && !form.colors.includes(val)) {
+                            setForm(prev => ({ ...prev, colors: [...prev.colors, val] }));
+                          }
+                          e.target.value = "";
+                        }}
+                        defaultValue=""
+                      >
+                        <option value="">Select a color</option>
+                        {predefinedColors.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                      <span className="text-xs text-gray-500">Pick a color to add</span>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {form.colors.map((color, index) => (
+                        <div key={index} className="border rounded-lg p-3 bg-gray-50">
+                          <div className="flex gap-2 mb-2">
+                            <select
+                              value={color}
+                              onChange={(e) => updateColor(index, e.target.value)}
+                              required
+                              className="input-field flex-1"
+                            >
+                              <option value="">Select color</option>
+                              {predefinedColors.map(c => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => removeColor(index)}
+                              className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm"
+                              disabled={form.colors.length === 1}
+                            >
+                              ×
+                            </button>
+                          </div>
+                          
+                          {/* Image preview for this color */}
+                          {form.images[index] ? (
+                            <div className="flex items-center gap-2">
+                              <img
+                                src={URL.createObjectURL(form.images[index])}
+                                alt={`Color ${index + 1}`}
+                                className="w-16 h-16 object-cover rounded border"
+                              />
+                              <div className="text-xs text-gray-600">
+                                <p><strong>Image:</strong> {form.images[index].name}</p>
+                                <p><strong>Size:</strong> {(form.images[index].size / 1024 / 1024).toFixed(2)} MB</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-500 italic">
+                              No image uploaded for this color
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={addColorWithImage}
+                          className="w-full px-4 py-2 border-2 border-dashed border-blue-300 rounded-lg text-blue-500 hover:border-blue-400 hover:text-blue-600 transition-colors bg-blue-50"
+                        >
+                          + Add Color with Image
+                        </button>
+                        <button
+                          type="button"
+                          onClick={addColor}
+                          className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          + Add Color Only (No Image)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                 <div>
+                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                     Style Fit
+                   </label>
+                   <select
+                     name="styleFit"
+                     value={form.styleFit}
+                     onChange={handleChange}
+                     className="input-field"
+                   >
+                     <option value="">Select Style</option>
+                     <option value="casual">Casual</option>
+                     <option value="formal">Formal</option>
+                     <option value="party">Party</option>
+                     <option value="ethnic">Ethnic</option>
+                     <option value="sports">Sports</option>
+                     <option value="grand">Grand</option>
+                   </select>
+                 </div>
+               </div>
 
-              {/* Demographics */}
+                             {/* Demographics */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -477,7 +731,7 @@ export default function StockManage() {
                     <option value="teen">Teen</option>
                     <option value="adult">Adult</option>
                     <option value="senior">Senior</option>
-      </select>
+                  </select>
                 </div>
               </div>
 
@@ -503,10 +757,72 @@ export default function StockManage() {
                 </div>
               </div>
 
-              {/* Image Upload */}
+                             {/* Inventory Management */}
+               {form.sizes.length > 0 && (form.colors.length > 0 || form.images.length > 0) && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Inventory Management
+                    </label>
+                    <button
+                      type="button"
+                      onClick={generateInventory}
+                      className="text-sm bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700"
+                    >
+                      Generate Inventory Table
+                    </button>
+                  </div>
+                  
+                  {form.inventory.length > 0 && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Quantity by Size & Color</h4>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-200">
+                              <th className="text-left py-2 px-2">Size</th>
+                              <th className="text-left py-2 px-2">Color</th>
+                              <th className="text-left py-2 px-2">Quantity</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {form.inventory.map((item, index) => (
+                              <tr key={index} className="border-b border-gray-100">
+                                <td className="py-2 px-2 font-medium">{item.size}</td>
+                                <td className="py-2 px-2">
+                                  <div 
+                                    className="w-4 h-4 rounded-full inline-block mr-2"
+                                    style={{ backgroundColor: item.color || '#ccc' }}
+                                  ></div>
+                                  {item.color}
+                                </td>
+                                <td className="py-2 px-2">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={item.quantity}
+                                    onChange={(e) => updateInventoryQuantity(item.size, item.color, e.target.value)}
+                                    className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                                    placeholder="0"
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Set the quantity available for each size and color combination
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Main Image Upload */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Product Image *
+                  Main Product Image *
                 </label>
                 <input
                   type="file"
@@ -517,7 +833,7 @@ export default function StockManage() {
                   className="input-field"
                 />
                 <p className="text-sm text-gray-500 mt-1">
-                  Upload a clear image of your product (JPG, PNG, GIF)
+                  Upload the main image of your product (JPG, PNG, GIF)
                 </p>
                 {form.image && (
                   <div className="mt-2 p-2 bg-gray-50 rounded-lg">
@@ -540,9 +856,14 @@ export default function StockManage() {
                         ⚠️ Please select an image file (JPG, PNG, GIF).
                       </p>
                     )}
+                  </div>
+                )}
+              </div>
+
+                             {/* Note: Images are now automatically linked to colors above */}
                     
                     {/* Image Preview */}
-                    {form.image.type.startsWith('image/') && (
+                    {form.image && form.image.type && form.image.type.startsWith('image/') && (
                       <div className="mt-3">
                         <p className="text-sm text-gray-600 mb-2">
                           <strong>Preview:</strong>
@@ -554,9 +875,6 @@ export default function StockManage() {
                         />
                       </div>
                     )}
-                  </div>
-                )}
-              </div>
 
               {/* Form Actions */}
               <div className="flex gap-4 pt-4">
@@ -647,12 +965,27 @@ export default function StockManage() {
                       <p className="text-gray-600 text-sm">
                         Color: {stock.color}
                       </p>
-                      <p className="text-gray-600 text-sm">
-                        Sizes: {stock.sizes?.join(', ')}
-                      </p>
-                      <p className="text-primary-600 font-bold text-lg">
-                        ₹{stock.price}
-                      </p>
+                                             <p className="text-gray-600 text-sm">
+                         Sizes: {stock.sizes?.join(', ')}
+                       </p>
+                       {stock.inventory && stock.inventory.length > 0 && (
+                         <div className="text-xs text-gray-500">
+                           <p><strong>Inventory:</strong></p>
+                           <div className="space-y-1">
+                             {stock.inventory.slice(0, 3).map((item, index) => (
+                               <p key={index}>
+                                 {item.size} - {item.color}: {item.quantity}
+                               </p>
+                             ))}
+                             {stock.inventory.length > 3 && (
+                               <p>+{stock.inventory.length - 3} more combinations</p>
+                             )}
+                           </div>
+                         </div>
+                       )}
+                       <p className="text-primary-600 font-bold text-lg">
+                         ₹{stock.price}
+                       </p>
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleEdit(stock)}

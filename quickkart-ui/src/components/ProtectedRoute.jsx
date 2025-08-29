@@ -5,14 +5,22 @@ export default function ProtectedRoute({ children, userType = "user" }) {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    let token;
+    if (userType === 'delivery') {
+      token = localStorage.getItem('delivery_token');
+    } else if (userType === 'delivery-head') {
+      token = localStorage.getItem('delivery_head_token');
+    } else {
+      token = localStorage.getItem("token");
+    }
+    
     if (token) {
       // You can add JWT token validation here if needed
       setIsAuthenticated(true);
     } else {
       setIsAuthenticated(false);
     }
-  }, []);
+  }, [userType]);
 
   if (isAuthenticated === null) {
     // Loading state

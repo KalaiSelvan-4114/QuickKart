@@ -15,6 +15,7 @@ import Wishlist from "./pages/user/Wishlist";
 import Cart from "./pages/user/Cart";
 import Checkout from "./pages/user/Checkout";
 import Orders from "./pages/user/Orders";
+import OrderDetail from "./pages/user/OrderDetail";
 import Address from "./pages/user/Address";
 import Stylist from "./pages/user/Stylist";
 import ProductDetail from "./pages/user/ProductDetail";
@@ -23,12 +24,20 @@ import CoordinateDemo from "./pages/CoordinateDemo";
 // Shop pages
 import ShopLogin from "./pages/shop/Login";
 import ShopSignup from "./pages/shop/Signup";
+import ShopDashboard from "./pages/shop/Dashboard";
 import StockManage from "./pages/shop/StockManage";
 import ShopOrders from "./pages/shop/Orders";
 
 // Admin pages
 import AdminLogin from "./pages/admin/Login";
+import AdminDashboard from "./pages/admin/Dashboard";
 import PendingShops from "./pages/admin/PendingShops";
+import AdminPayouts from "./pages/admin/Payouts";
+// Delivery Head pages
+import DeliveryHeadLogin from "./pages/DeliveryHead/Login";
+import DeliveryHeadRegister from "./pages/DeliveryHead/Register";
+import DeliveryHeadDashboard from "./pages/DeliveryHead/Dashboard";
+import DeliveryHeadBoys from "./pages/DeliveryHead/Boys";
 
 export default function App() {
   return (
@@ -88,6 +97,11 @@ export default function App() {
                   <Orders />
                 </ProtectedRoute>
               } />
+              <Route path="/user/orders/:orderId" element={
+                <ProtectedRoute userType="user">
+                  <OrderDetail />
+                </ProtectedRoute>
+              } />
               <Route path="/user/address" element={
                 <ProtectedRoute userType="user">
                   <Address />
@@ -103,6 +117,11 @@ export default function App() {
               {/* Shop */}
               <Route path="/shop/login" element={<ShopLogin />} />
               <Route path="/shop/signup" element={<ShopSignup />} />
+              <Route path="/shop/dashboard" element={
+                <ProtectedRoute userType="shop">
+                  <ShopDashboard />
+                </ProtectedRoute>
+              } />
               <Route path="/shop/stock" element={
                 <ProtectedRoute userType="shop">
                   <StockManage />
@@ -116,9 +135,32 @@ export default function App() {
 
               {/* Admin */}
               <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/admin/dashboard" element={
+                <ProtectedRoute userType="admin">
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } />
               <Route path="/admin/pending" element={
                 <ProtectedRoute userType="admin">
                   <PendingShops />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/payouts" element={
+                <ProtectedRoute userType="admin">
+                  <AdminPayouts />
+                </ProtectedRoute>
+              } />
+              {/* Delivery Head */}
+              <Route path="/delivery-head/login" element={<DeliveryHeadLogin />} />
+              <Route path="/delivery-head/register" element={<DeliveryHeadRegister />} />
+              <Route path="/delivery-head/dashboard" element={
+                <ProtectedRoute userType="delivery-head">
+                  <DeliveryHeadDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/delivery-head/boys" element={
+                <ProtectedRoute userType="delivery-head">
+                  <DeliveryHeadBoys />
                 </ProtectedRoute>
               } />
             </Routes>

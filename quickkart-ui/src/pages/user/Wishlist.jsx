@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import axiosClient from "../../api/axiosClient";
+import { useCart } from "../../contexts/CartContext";
 
 export default function Wishlist() {
+  const { addToCart } = useCart();
   const [wishlist, setWishlist] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [addingToCart, setAddingToCart] = useState({});
+  const [notification, setNotification] = useState({ show: false, message: "", type: "" });
 
   useEffect(() => {
     loadWishlist();
@@ -32,12 +36,26 @@ export default function Wishlist() {
     }
   };
 
-  const addToCart = async (productId) => {
+  const handleAddToCart = async (item) => {
     try {
-      await axiosClient.post("/user/cart", { productId, quantity: 1 });
-      // Show success notification
+      setAddingToCart(prev => ({ ...prev, [item._id]: true }));
+      const result = await addToCart(item._id, 1, null, null, item);
+      if (result.success) {
+        // Show success notification
+        setError(""); // Clear any previous errors
+        setNotification({ show: true, message: result.message, type: "success" });
+        setTimeout(() => setNotification({ show: false, message: "", type: "" }), 3000);
+      } else {
+        setError(result.message || "Failed to add to cart");
+        setNotification({ show: true, message: result.message, type: "error" });
+        setTimeout(() => setNotification({ show: false, message: "", type: "" }), 3000);
+      }
     } catch (err) {
       setError("Failed to add to cart");
+      setNotification({ show: true, message: "Failed to add to cart", type: "error" });
+      setTimeout(() => setNotification({ show: false, message: "", type: "" }), 3000);
+    } finally {
+      setAddingToCart(prev => ({ ...prev, [item._id]: false }));
     }
   };
 
@@ -71,6 +89,22 @@ export default function Wishlist() {
             {wishlist.length} items saved for later
           </p>
         </div>
+
+        {/* Notification Display */}
+        {notification.show && (
+          <div className={`fixed top-24 right-6 z-50 px-6 py-4 rounded-2xl shadow-2xl transition-all duration-500 transform ${
+            notification.type === "success" 
+              ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white" 
+              : "bg-gradient-to-r from-red-500 to-pink-600 text-white"
+          }`}>
+            <div className="flex items-center space-x-3">
+              <span className="text-xl">
+                {notification.type === "success" ? "✅" : "❌"}
+              </span>
+              <span className="font-medium">{notification.message}</span>
+            </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (
@@ -154,10 +188,18 @@ export default function Wishlist() {
                   
                   <div className="flex gap-2">
                     <button
-                      onClick={() => addToCart(item._id)}
-                      className="btn-primary flex-1 text-sm py-2"
+                      onClick={() => handleAddToCart(item)}
+                      disabled={addingToCart[item._id]}
+                      className="btn-primary flex-1 text-sm py-2 flex items-center justify-center"
                     >
-                      Add to Cart
+                      {addingToCart[item._id] ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                          Adding...
+                        </>
+                      ) : (
+                        'Add to Cart'
+                      )}
                     </button>
                     <Link
                       to={`/user/shop/${item.shopId}`}

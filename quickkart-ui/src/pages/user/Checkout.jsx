@@ -140,7 +140,13 @@ export default function Checkout() {
       setLoading(true);
       const method = methodOverride || (paymentMethod === "cod" ? "cod" : "online_upi");
       const orderData = {
-        items: cart.map(item => ({ productId: item.productId, quantity: item.quantity, price: item.price })),
+        items: cart.map(item => ({ 
+          productId: item.productId, 
+          quantity: item.quantity, 
+          price: item.price,
+          selectedSize: item.selectedSize ?? null,
+          selectedColor: item.selectedColor ?? null
+        })),
         shippingDetails,
         paymentMethod: method,
         paid: Boolean(paid),

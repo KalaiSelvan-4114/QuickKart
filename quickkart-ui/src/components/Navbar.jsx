@@ -13,13 +13,16 @@ export default function Navbar() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    setIsLoggedIn(Boolean(token));
+    const dToken = localStorage.getItem('delivery_token');
+    const dhToken = localStorage.getItem('delivery_head_token');
+    setIsLoggedIn(Boolean(token || dToken || dhToken));
 
     const path = location.pathname || "";
     let role = "";
     if (path.startsWith("/user/")) role = "user";
     else if (path.startsWith("/shop/")) role = "shop";
     else if (path.startsWith("/admin/")) role = "admin";
+    else if (path.startsWith("/delivery-head/")) role = "delivery-head";
     else role = localStorage.getItem("authRole") || ""; // fallback to persisted role
 
     setUserType(role);
@@ -35,6 +38,8 @@ export default function Navbar() {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("authRole");
+    localStorage.removeItem('delivery_token');
+    localStorage.removeItem('delivery_head_token');
     setIsLoggedIn(false);
     setUserType("");
     setShowMobileMenu(false);
@@ -68,6 +73,7 @@ export default function Navbar() {
               <>
                 <Link to="/user/login" className="nav-link">User Login</Link>
                 <Link to="/shop/login" className="nav-link">Shop Login</Link>
+                <Link to="/delivery-head/login" className="nav-link">🚚 Delivery Head</Link>
                 <Link to="/admin/login" className="nav-link">Admin Login</Link>
                 <Link to="/coordinate-demo" className="nav-link">📍 Coordinates</Link>
                 <div className="ml-4">
@@ -93,13 +99,22 @@ export default function Navbar() {
                 )}
                 {userType === "shop" && (
                   <>
+                    <Link to="/shop/dashboard" className={`nav-link ${isActiveLink('/shop/dashboard') ? 'nav-link-active' : ''}`}>📊 Dashboard</Link>
                     <Link to="/shop/stock" className={`nav-link ${isActiveLink('/shop/stock') ? 'nav-link-active' : ''}`}>📦 Manage Stock</Link>
                     <Link to="/shop/orders" className={`nav-link ${isActiveLink('/shop/orders') ? 'nav-link-active' : ''}`}>📋 Orders</Link>
                   </>
                 )}
                 {userType === "admin" && (
                   <>
+                    <Link to="/admin/dashboard" className={`nav-link ${isActiveLink('/admin/dashboard') ? 'nav-link-active' : ''}`}>📊 Dashboard</Link>
                     <Link to="/admin/pending" className={`nav-link ${isActiveLink('/admin/pending') ? 'nav-link-active' : ''}`}>🛡️ Pending Shops</Link>
+                    <Link to="/admin/payouts" className={`nav-link ${isActiveLink('/admin/payouts') ? 'nav-link-active' : ''}`}>💸 Payouts</Link>
+                  </>
+                )}
+                {userType === "delivery-head" && (
+                  <>
+                    <Link to="/delivery-head/dashboard" className={`nav-link ${isActiveLink('/delivery-head/dashboard') ? 'nav-link-active' : ''}`}>🚚 Manage Delivery</Link>
+                    <Link to="/delivery-head/boys" className={`nav-link ${isActiveLink('/delivery-head/boys') ? 'nav-link-active' : ''}`}>👥 Delivery Boys</Link>
                   </>
                 )}
                 <button onClick={handleLogout} className="ml-4 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg">Logout</button>
@@ -129,6 +144,7 @@ export default function Navbar() {
                 <>
                   <Link to="/user/login" className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg" onClick={() => setShowMobileMenu(false)}>User Login</Link>
                   <Link to="/shop/login" className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg" onClick={() => setShowMobileMenu(false)}>Shop Login</Link>
+                  <Link to="/delivery-head/login" className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg" onClick={() => setShowMobileMenu(false)}>🚚 Delivery Head</Link>
                   <Link to="/admin/login" className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg" onClick={() => setShowMobileMenu(false)}>Admin Login</Link>
                   <Link to="/coordinate-demo" className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg" onClick={() => setShowMobileMenu(false)}>📍 Coordinates</Link>
                   <Link to="/user/signup" className="block px-3 py-2 text-base font-medium text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-lg" onClick={() => setShowMobileMenu(false)}>Get Started</Link>

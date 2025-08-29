@@ -1,20 +1,42 @@
 const express = require("express");
+const router = express.Router();
+const { authenticateAdmin } = require("../middlewares/auth");
 const {
+  login,
+  getPendingShops,
   approveShop,
-  listPendingShops,
-  declineShop
+  rejectShop,
+  getPendingDeliveryHeads,
+  approveDeliveryHead,
+  rejectDeliveryHead,
+  getAllOrders,
+  getOrderStats,
+  settleOrderWithShop,
+  getPayoutSummary
 } = require("../controllers/adminController");
 
-const { authenticateAdmin } = require("../middlewares/auth");
-const router = express.Router();
+// Public routes
+router.post('/login', login);
 
-// Approve shop
-router.put("/approve/:id", authenticateAdmin, approveShop);
+// Protected routes
+router.use(authenticateAdmin);
 
-// List all pending shops
-router.get("/pending", authenticateAdmin, listPendingShops);
+// Shop management
+router.get('/pending-shops', getPendingShops);
+router.put('/shops/:shopId/approve', approveShop);
+router.delete('/shops/:shopId/reject', rejectShop);
 
-// Decline shop
-router.delete("/decline/:id", authenticateAdmin, declineShop);
+// Delivery Head management
+router.get('/pending-delivery-heads', getPendingDeliveryHeads);
+router.put('/delivery-heads/:deliveryHeadId/approve', approveDeliveryHead);
+router.delete('/delivery-heads/:deliveryHeadId/reject', rejectDeliveryHead);
+
+// Order management
+router.get('/orders', getAllOrders);
+router.get('/orders/stats', getOrderStats);
+router.put('/orders/:orderId/settle-shop', settleOrderWithShop);
+
+// Payouts
+router.get('/payouts/summary', getPayoutSummary);
 
 module.exports = router;

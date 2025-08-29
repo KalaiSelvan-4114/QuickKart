@@ -10,7 +10,10 @@ const addressSchema = new mongoose.Schema({
 
 const cartItemSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
-  quantity: { type: Number, default: 1 }
+  quantity: { type: Number, default: 1 },
+  selectedSize: { type: String, default: null },
+  selectedColor: { type: String, default: null },
+  notes: { type: String, default: null }
 });
 
 const userSchema = new mongoose.Schema({

@@ -26,7 +26,7 @@ export default function Stylist() {
   const [previewProducts, setPreviewProducts] = useState([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
-  const [useLocationFilter, setUseLocationFilter] = useState(false);
+  const [useLocationFilter, setUseLocationFilter] = useState(true);
 
   // Clothing categories based on age and occasion
   const clothingCategories = {
@@ -760,21 +760,19 @@ export default function Stylist() {
           </div>
         </div>
 
-        {/* Preview Products from Nearby Shops */}
-        {(userProfile.ageCategory && stylingInputs.occasion) && (
+        {/* Preview Products from Nearby Shops (hide when no results) */}
+        {(userProfile.ageCategory && stylingInputs.occasion && (previewLoading || previewError || previewProducts.length > 0)) && (
           <div className="mt-8 card">
             <h3 className="text-xl font-bold text-gray-800 mb-4 font-display">Preview Suggestions</h3>
             {previewLoading ? (
               <div className="text-center py-8 text-gray-600">Loading nearby products...</div>
             ) : previewError ? (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">{previewError}</div>
-            ) : previewProducts.length === 0 ? (
-              <div className="text-gray-600">No nearby products match your current selections.</div>
-            ) : (
+            ) : previewProducts.length === 0 ? null : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {previewProducts.map((product, index) => (
                   <div key={product._id || index} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
-                    <a href={`/user/product/${product._id}`}>
+                    <Link to={`/user/product/${product._id}`}>
                       <div className="aspect-square bg-gray-200 flex items-center justify-center">
                         {product.image ? (
                           <img src={product.image} alt={product.title} className="w-full h-full object-cover" />
@@ -782,12 +780,23 @@ export default function Stylist() {
                           <span className="text-4xl">👕</span>
                         )}
                       </div>
-                    </a>
+                    </Link>
                     <div className="p-4">
-                      <h4 className="font-semibold text-gray-800 mb-2"><a href={`/user/product/${product._id}`}>{product.title}</a></h4>
+                      <h4 className="font-semibold text-gray-800 mb-1"><Link to={`/user/product/${product._id}`}>{product.title}</Link></h4>
                       <p className="text-gray-600 text-sm mb-1">{product.category}</p>
                       {product.color && (<p className="text-gray-500 text-xs mb-1">Color: {product.color}</p>)}
-                      <p className="text-primary-600 font-bold">₹{product.price}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-primary-600 font-bold">₹{product.price}</p>
+                        {typeof product.distanceKm === 'number' && (
+                          <span className="text-xs text-gray-500">{product.distanceKm.toFixed(1)} km</span>
+                        )}
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <Link to={`/user/product/${product._id}`} className="btn-primary flex-1 text-sm py-2">View Details</Link>
+                        {product.shop && (
+                          <Link to={`/user/shop/${product.shop._id || product.shop}`} className="btn-secondary text-sm">Shop</Link>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -821,15 +830,23 @@ export default function Stylist() {
                     )}
                   </div>
                   <div className="p-4">
-                    <h4 className="font-semibold text-gray-800 mb-2">{product.title}</h4>
+                    <h4 className="font-semibold text-gray-800 mb-1">{product.title}</h4>
                     <p className="text-gray-600 text-sm mb-2">{product.category}</p>
-                    <p className="text-primary-600 font-bold">₹{product.price}</p>
-                    <button className="mt-3 w-full btn-primary text-sm py-2">
-                      View Details
-                    </button>
+                    <div className="flex items-center justify-between">
+                      <p className="text-primary-600 font-bold">₹{product.price}</p>
+                      {typeof product.distanceKm === 'number' && (
+                        <span className="text-xs text-gray-500">{product.distanceKm.toFixed(1)} km</span>
+                      )}
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <Link to={`/user/product/${product._id}`} className="btn-primary flex-1 text-sm py-2">View Details</Link>
+                      {product.shop && (
+                        <Link to={`/user/shop/${product.shop._id || product.shop}`} className="btn-secondary text-sm">Shop</Link>
+                      )}
+                    </div>
                   </div>
-            </div>
-          ))}
+                </div>
+              ))}
             </div>
         </div>
       )}

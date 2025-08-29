@@ -7,6 +7,7 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all"); // all, pending, confirmed, delivered, cancelled
+  const [isCancelling, setIsCancelling] = useState({});
 
   useEffect(() => {
     loadOrders();
@@ -16,7 +17,29 @@ export default function Orders() {
     try {
       setLoading(true);
       const res = await axiosClient.get("/user/orders");
-      setOrders(res.data);
+      // Normalize into a UI-friendly shape
+      const normalized = (res.data || []).map(o => ({
+        _id: o._id,
+        status: o.status,
+        createdAt: o.orderDate || o.createdAt,
+        subtotal: o.subtotal,
+        deliveryFee: o.deliveryFee,
+        total: o.total,
+        items: (o.items || []).map(it => ({
+          title: it.product?.title || 'Product',
+          image: it.product?.image || null,
+          quantity: it.quantity,
+          price: it.price,
+          size: it.selectedSize || null,
+          color: it.selectedColor || (it.product?.color || null),
+          productId: it.product?._id || null,
+          shopId: it.product?.shop || null
+        })),
+        shopId: (o.items?.[0]?.product?.shop) || null,
+        shippingDetails: o.shippingDetails || null,
+        trackingNumber: o.trackingId || null
+      }));
+      setOrders(normalized);
     } catch (err) {
       setError("Failed to load orders");
     } finally {
@@ -51,6 +74,19 @@ export default function Orders() {
         return '❌';
       default:
         return '📋';
+    }
+  };
+
+  const cancelOrder = async (orderId) => {
+    try {
+      setIsCancelling(prev => ({ ...prev, [orderId]: true }));
+      await axiosClient.post(`/user/orders/${orderId}/cancel`);
+      // Refresh orders list after cancellation
+      await loadOrders();
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to cancel order");
+    } finally {
+      setIsCancelling(prev => ({ ...prev, [orderId]: false }));
     }
   };
 
@@ -146,9 +182,7 @@ export default function Orders() {
                 {/* Order Header */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 pb-4 border-b border-gray-200">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-800">
-                      Order #{order.orderId}
-                    </h3>
+                    <h3 className="text-lg font-semibold text-gray-800">Order #{order._id?.slice(-6) || ''}</h3>
                     <p className="text-sm text-gray-600">
                       Placed on {new Date(order.createdAt).toLocaleDateString()}
                     </p>
@@ -179,9 +213,7 @@ export default function Orders() {
                       </div>
                       <div className="flex-1">
                         <h4 className="font-medium text-gray-800">{item.title}</h4>
-                        <p className="text-sm text-gray-600">
-                          Size: {item.size} • Color: {item.color} • Qty: {item.quantity}
-                        </p>
+                        <p className="text-sm text-gray-600">{item.size ? `Size: ${item.size} • `: ''}{item.color ? `Color: ${item.color} • `: ''}Qty: {item.quantity}</p>
                         <p className="text-primary-600 font-medium">
                           ₹{item.price}
                         </p>
@@ -195,10 +227,10 @@ export default function Orders() {
                   <div>
                     <h4 className="font-semibold text-gray-800 mb-2">Delivery Address</h4>
                     <p className="text-sm text-gray-600">
-                      {order.deliveryAddress?.name}<br />
-                      {order.deliveryAddress?.address}<br />
-                      {order.deliveryAddress?.city}, {order.deliveryAddress?.state} - {order.deliveryAddress?.pincode}<br />
-                      Phone: {order.deliveryAddress?.phone}
+                      {order.shippingDetails?.firstName} {order.shippingDetails?.lastName}<br />
+                      {order.shippingDetails?.address}<br />
+                      {order.shippingDetails?.city}, {order.shippingDetails?.state} - {order.shippingDetails?.pincode}<br />
+                      Phone: {order.shippingDetails?.phone}
                     </p>
                   </div>
                   <div>
@@ -223,8 +255,12 @@ export default function Orders() {
                 {/* Order Actions */}
                 <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
                   {order.status.toLowerCase() === 'pending' && (
-                    <button className="btn-secondary text-sm">
-                      Cancel Order
+                    <button 
+                      onClick={() => cancelOrder(order._id)}
+                      disabled={isCancelling[order._id]}
+                      className="btn-secondary text-sm disabled:opacity-50"
+                    >
+                      {isCancelling[order._id] ? 'Cancelling...' : 'Cancel Order'}
                     </button>
                   )}
                   {order.status.toLowerCase() === 'delivered' && (
@@ -232,18 +268,10 @@ export default function Orders() {
                       Rate & Review
                     </button>
                   )}
-                  <Link
-                    to={`/user/orders/${order._id}`}
-                    className="btn-secondary text-sm"
-                  >
-                    View Details
-                  </Link>
-                  <Link
-                    to={`/user/shop/${order.shopId}`}
-                    className="btn-secondary text-sm"
-                  >
-                    Visit Shop
-                  </Link>
+                  <Link to={`/user/orders/${order._id}`} className="btn-secondary text-sm">View Details</Link>
+                  {order.shopId && (
+                    <Link to={`/user/shop/${order.shopId}`} className="btn-secondary text-sm">Visit Shop</Link>
+                  )}
                 </div>
 
                 {/* Tracking Info */}

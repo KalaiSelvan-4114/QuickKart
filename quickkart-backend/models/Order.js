@@ -3,7 +3,9 @@ const mongoose = require("mongoose");
 const orderItemSchema = new mongoose.Schema({
   product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
   quantity: { type: Number, required: true, min: 1 },
-  price: { type: Number, required: true, min: 0 }
+  price: { type: Number, required: true, min: 0 },
+  selectedSize: { type: String, default: null },
+  selectedColor: { type: String, default: null }
 });
 
 const shippingDetailsSchema = new mongoose.Schema({
@@ -36,10 +38,20 @@ const orderSchema = new mongoose.Schema({
     enum: ["pending", "confirmed", "processing", "shipped", "out_for_delivery", "delivered", "cancelled"], 
     default: "pending" 
   },
+  assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "DeliveryBoy" },
+  deliveryOTP: { type: String },
+  otpExpiresAt: { type: Date },
   orderDate: { type: Date, default: Date.now },
   estimatedDelivery: { type: Date },
   trackingId: String,
   deliveryNotification: Date,
+  settlement: {
+    method: { type: String, enum: ['cod', 'online'], default: 'cod' },
+    paidToAdmin: { type: Boolean, default: false },
+    paidToShop: { type: Boolean, default: false },
+    paidAmount: { type: Number, default: 0 },
+    settledAt: { type: Date }
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

@@ -2,6 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Shop = require("../models/Shop");
+const DeliveryAgent = require("../models/DeliveryAgent");
 
 /** ---------------------------
  *  USER SIGNUP
@@ -106,6 +107,37 @@ exports.adminLogin = async (req, res) => {
     res.status(401).json({ error: "Invalid admin credentials" });
   } catch (err) {
     console.error("❌ Admin login error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/** ---------------------------
+ *  DELIVERY AGENT SIGNUP/LOGIN
+ *  -------------------------- */
+exports.deliverySignup = async (req, res) => {
+  try {
+    const { agentId, aadhar, name, phone, email, password, location } = req.body;
+    const existing = await DeliveryAgent.findOne({ $or: [{ email }, { aadhar }, { agentId }] });
+    if (existing) return res.status(400).json({ error: "Delivery agent already exists" });
+    const hash = await bcrypt.hash(password, 10);
+    const agent = new DeliveryAgent({ agentId, aadhar, name, phone, email, password: hash, location });
+    await agent.save();
+    res.json({ success: true, message: "Delivery agent registered" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.deliveryLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const agent = await DeliveryAgent.findOne({ email });
+    if (!agent) return res.status(400).json({ error: "Agent not found" });
+    const valid = await bcrypt.compare(password, agent.password);
+    if (!valid) return res.status(401).json({ error: "Incorrect password" });
+    const token = jwt.sign({ id: agent._id, email: agent.email, role: 'delivery' }, process.env.JWT_SECRET);
+    res.json({ token });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };

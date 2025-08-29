@@ -3,12 +3,24 @@ const mongoose = require("mongoose");
 const productSchema = new mongoose.Schema({
   title: String,
   description: String,
-  image: String,
+  image: String, // Keep for backward compatibility
+  images: [{
+    url: String,
+    color: String,
+    isPrimary: { type: Boolean, default: false }
+  }], // New field for multiple images with color variants
   price: Number,
   category: String,
   tags: [String],
-  color: String,
+  color: String, // Keep for backward compatibility
+  colors: [String], // New array for multiple colors
   sizes: [String], // Changed from size to sizes array
+  // New field for size and color specific inventory
+  inventory: [{
+    size: String,
+    color: String,
+    quantity: { type: Number, default: 0, min: 0 }
+  }],
   gender: String,
   ageCategory: String,
   styleFit: String,
